@@ -36,6 +36,7 @@ export const HeaderNav: React.FC = () => {
   const [isMobileMetricsOpen, setIsMobileMetricsOpen] = useState(false);
 
   const viewTitles: Record<ViewMode, string> = {
+    welcome: "Sovereign Overview",
     home: "Chat Studio",
     thinking: "Cognitive Thinking Hub",
     canvas: "Infinite Creative Workbench",

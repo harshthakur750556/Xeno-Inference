@@ -39,6 +39,7 @@ export const AppSidebar: React.FC = () => {
   } = useWorkspaceStore();
 
   const navItems: { id: ViewMode; label: string; icon: React.ReactNode; badge?: string }[] = [
+    { id: "welcome", label: "Start Overview", icon: <Sparkles className="w-4 h-4 text-amber-500" />, badge: "Welcome" },
     { id: "home", label: "Chat Studio", icon: <MessageSquare className="w-4 h-4" /> },
     { id: "thinking", label: "Thinking Studio", icon: <BrainCircuit className="w-4 h-4 text-amber-500" />, badge: "Swarm/DAG" },
     { id: "canvas", label: "Creative Canvas", icon: <LayoutGrid className="w-4 h-4 text-blue-500" />, badge: "3D CAD" },

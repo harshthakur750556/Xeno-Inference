@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ViewMode = "home" | "thinking" | "canvas" | "diff" | "terminal" | "browser";
+export type ViewMode = "welcome" | "home" | "thinking" | "canvas" | "diff" | "terminal" | "browser";
 export type RoutingPolicy = "speed" | "reasoning" | "privacy" | "cost";
 export type NodeStatus = "pending" | "running" | "completed" | "failed" | "healing";
 export type ThemeMode = "light" | "dark";
@@ -501,7 +501,7 @@ const loadSavedProviders = (): ProviderItem[] => {
 };
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  activeView: "home",
+  activeView: "welcome",
   themeMode: (typeof window !== "undefined" && localStorage.getItem("xeno_theme") === "dark") ? "dark" : "light",
   selectedModel: "claude-3-7-sonnet",
   selectedProviderId: "anthropic",
