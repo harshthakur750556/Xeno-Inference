@@ -1,6 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import fs from "node:fs";
+
+// Synchronize cwd with realpath to prevent junction relative path mismatches
+try {
+  const realCwd = fs.realpathSync(process.cwd());
+  if (realCwd !== process.cwd()) {
+    process.chdir(realCwd);
+  }
+} catch {
+  // Ignore fallback
+}
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
