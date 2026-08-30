@@ -9,7 +9,8 @@ import {
   Clock, 
   Zap, 
   Layers, 
-  ArrowRight 
+  ArrowRight,
+  Check 
 } from "lucide-react";
 
 export const ThinkingGraphDrawer: React.FC = () => {
@@ -87,8 +88,8 @@ export const ThinkingGraphDrawer: React.FC = () => {
                 {idx < thinking.steps.length - 1 && (
                   <div className="absolute left-[9px] top-4 bottom-0 w-0.5 bg-stone-200 dark:bg-stone-800" />
                 )}
-                <div className="absolute left-0 top-0.5 w-4.5 h-4.5 rounded-full bg-white dark:bg-stone-900 border-2 border-emerald-500 flex items-center justify-center text-[9px] font-bold text-emerald-600">
-                  ✓
+                <div className="absolute left-0 top-0.5 w-4.5 h-4.5 rounded-full bg-white dark:bg-stone-900 border-2 border-emerald-500 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-emerald-600 stroke-[3]" />
                 </div>
                 <div className="p-2.5 rounded-lg border border-stone-200/80 dark:border-stone-800/80 bg-white dark:bg-stone-900 shadow-2xs">
                   <div className="font-semibold text-stone-800 dark:text-stone-200 text-xs">

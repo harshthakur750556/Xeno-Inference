@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useWorkspaceStore, ViewMode } from "./stores/workspaceStore";
 import { HeaderNav } from "./components/layout/HeaderNav";
-import { SidebarExplorer } from "./components/layout/SidebarExplorer";
+import { AppSidebar } from "./components/layout/AppSidebar";
 import { TelemetryHUD } from "./components/layout/TelemetryHUD";
 import { OmniBar } from "./components/layout/OmniBar";
 import { HomepageView } from "./components/home/HomepageView";
@@ -124,8 +124,8 @@ export const App: React.FC = () => {
 
       {/* Main App Workspace */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Collapsible Left Explorer Sidebar (Hidden on Chat Studio for immersion) */}
-        {activeView !== "home" && <SidebarExplorer />}
+        {/* Sleek Workstation Navigation Sidebar */}
+        <AppSidebar />
 
         {/* Dynamic Viewport Surface */}
         <main className="flex-1 flex overflow-hidden relative">
