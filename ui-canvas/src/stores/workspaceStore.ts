@@ -102,6 +102,63 @@ export interface DynamicSystemMetrics {
   vramTotalGb: number;
 }
 
+export interface ChatThinkingData {
+  durationSecs: number;
+  tokens: number;
+  summary: string;
+  steps: string[];
+  expanded?: boolean;
+}
+
+export interface ChatToolCall {
+  name: string;
+  icon: string;
+  input: string;
+  output?: string;
+  latencyMs: number;
+  status: "executing" | "success" | "failed";
+}
+
+export interface ChatMediaItem {
+  type: "image" | "code" | "diff";
+  url?: string;
+  title?: string;
+  code?: string;
+  language?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  model?: string;
+  thinking?: ChatThinkingData;
+  toolCalls?: ChatToolCall[];
+  media?: ChatMediaItem[];
+  attachedFiles?: string[];
+  metrics?: {
+    tokPerSec: number;
+    totalTokens: number;
+    latencyMs: number;
+  };
+}
+
+export interface McpToolItem {
+  name: string;
+  description: string;
+  enabled: boolean;
+  category: string;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  status: "connected" | "standby" | "disabled";
+  pingMs: number;
+  tools: McpToolItem[];
+}
+
 export interface WorkspaceState {
   activeView: ViewMode;
   themeMode: ThemeMode;
@@ -149,6 +206,20 @@ export interface WorkspaceState {
   isTorConnected: boolean;
   torHistory: string[];
 
+  // Chat Studio & Arsenal State
+  chatMessages: ChatMessage[];
+  isGenerating: boolean;
+  isThinkingEnabled: boolean;
+  thinkingBudget: "fast" | "deep" | "max";
+  isWebSearchEnabled: boolean;
+  webSearchMode: "clearnet" | "onion";
+  isImageGenMode: boolean;
+  isCodeExecMode: boolean;
+  isMcpModalOpen: boolean;
+  mcpServers: McpServerConfig[];
+  attachedFiles: string[];
+  activeInspectGraphMessageId: string | null;
+
   // Actions
   setActiveView: (view: ViewMode) => void;
   toggleTheme: () => void;
@@ -171,6 +242,23 @@ export interface WorkspaceState {
   toggleStageDiff: (id: string) => void;
   exportSessionJson: () => string;
   importSessionJson: (jsonStr: string) => boolean;
+
+  // Chat & Arsenal Actions
+  sendChatMessage: (content: string) => Promise<void>;
+  toggleThinking: () => void;
+  setThinkingBudget: (budget: "fast" | "deep" | "max") => void;
+  toggleWebSearch: () => void;
+  setWebSearchMode: (mode: "clearnet" | "onion") => void;
+  toggleImageGenMode: () => void;
+  toggleCodeExecMode: () => void;
+  toggleMcpModal: () => void;
+  toggleMcpTool: (serverId: string, toolName: string) => void;
+  toggleMcpServer: (serverId: string) => void;
+  attachFile: (filePath: string) => void;
+  removeAttachedFile: (filePath: string) => void;
+  clearChat: () => void;
+  forkThoughtToCanvas: (messageId: string) => void;
+  setActiveInspectGraphMessageId: (id: string | null) => void;
 
   // Tor Actions
   navigateTorBrowser: (url: string) => void;
@@ -505,6 +593,105 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     "https://doc.rust-lang.org/std/",
   ],
 
+  // Chat Studio & Arsenal State
+  chatMessages: [
+    {
+      id: "msg-init-1",
+      role: "user",
+      content: "Audit our AST validator rules, check air-gap socket security, and summarize the cognitive plan.",
+      timestamp: "17:10",
+      attachedFiles: ["crates/xeno-tools/src/ast_validator.rs", "crates/xeno-router/src/privacy.rs"],
+    },
+    {
+      id: "msg-init-2",
+      role: "assistant",
+      model: "Claude 3.7 Sonnet (Thinking)",
+      content: "I have audited the character-exact AST replacement engine in `xeno-tools` and verified the air-gap socket scrubber against cloud egress leaks.\n\n### Architectural Validation Summary:\n1. **Syn AST Grammar Verification**: Validated Rust syntax with zero unwrap hazards. Invalid AST tokens are rejected before any disk write.\n2. **Air-Gap Privacy Guard**: Tested against cloud hostnames (`api.openai.com`, `anthropic.com`) and Unicode zero-width evasion attacks.\n3. **Cognitive Trace**: Decomposed into 4 sequential verification steps with 100% test pass rate across 120+ unit tests.",
+      timestamp: "17:11",
+      thinking: {
+        durationSecs: 3.8,
+        tokens: 1240,
+        summary: "Analyzed syn AST parsing rules, evaluated regex secret redaction against zero-width character evasion, and verified 120+ unit tests across all 8 crates.",
+        steps: [
+          "Step 1: Ingesting workspace crates `xeno-tools` and `xeno-router` symbol definitions.",
+          "Step 2: Checking AST parsing boundaries for character-exact replacement and rollbacks.",
+          "Step 3: Simulating cloud hostname spoofing and verifying air-gap enforcement blocks egress.",
+          "Step 4: Compiling full test suite and generating execution proof with zero warnings."
+        ],
+        expanded: false
+      },
+      toolCalls: [
+        {
+          name: "xeno_tools.ast_validator",
+          icon: "FileCode",
+          input: "crates/xeno-tools/src/ast_validator.rs",
+          output: "Valid Rust AST syntax (syn::parse_file OK)",
+          latencyMs: 14,
+          status: "success"
+        },
+        {
+          name: "xeno_router.air_gap_enforcer",
+          icon: "ShieldCheck",
+          input: "socket_check: 127.0.0.1:9050 (Tor SOCKS5)",
+          output: "Air-gap verified: outbound cloud egress strictly blocked",
+          latencyMs: 8,
+          status: "success"
+        }
+      ],
+      metrics: {
+        tokPerSec: 142.6,
+        totalTokens: 1240,
+        latencyMs: 3800
+      }
+    }
+  ],
+  isGenerating: false,
+  isThinkingEnabled: true,
+  thinkingBudget: "deep",
+  isWebSearchEnabled: false,
+  webSearchMode: "onion",
+  isImageGenMode: false,
+  isCodeExecMode: false,
+  isMcpModalOpen: false,
+  mcpServers: [
+    {
+      id: "blender",
+      name: "Blender 3D MCP",
+      status: "connected",
+      pingMs: 12,
+      tools: [
+        { name: "get_scene_info", description: "Inspect active Blender 3D scene and camera", enabled: true, category: "3D Graphics" },
+        { name: "execute_blender_code", description: "Execute Python script in Blender context", enabled: true, category: "Automation" },
+        { name: "search_sketchfab_models", description: "Search Polyhaven and Sketchfab 3D assets", enabled: true, category: "Assets" },
+        { name: "generate_hyper3d_model_via_text", description: "Generate 3D mesh from text prompt", enabled: false, category: "Generation" }
+      ]
+    },
+    {
+      id: "xeno_tools",
+      name: "Xeno Tools Engine",
+      status: "connected",
+      pingMs: 4,
+      tools: [
+        { name: "ast_validator", description: "Rust syn & JSON AST syntax verifier", enabled: true, category: "Code Analysis" },
+        { name: "file_engine", description: "Character-exact multi-replace with line validation", enabled: true, category: "File Ops" },
+        { name: "search_ripgrep", description: "Ripgrep-accelerated regex and fuzzy glob engine", enabled: true, category: "Search" },
+        { name: "pty_sandbox", description: "Windows ConPTY Job Object restricted terminal", enabled: true, category: "Execution" }
+      ]
+    },
+    {
+      id: "tor_proxy",
+      name: "Tor SOCKS5 Router",
+      status: "connected",
+      pingMs: 28,
+      tools: [
+        { name: "onion_resolve", description: "Resolve .onion v3 endpoints via SOCKS5 9050", enabled: true, category: "Network" },
+        { name: "signal_newnym", description: "Rotate 3-hop circuit identity", enabled: true, category: "Security" }
+      ]
+    }
+  ],
+  attachedFiles: [],
+  activeInspectGraphMessageId: null,
+
   // Actions
   setActiveView: (view) => set({ activeView: view }),
   
@@ -744,6 +931,166 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setTorShieldLevel: (level) => set({ torShieldLevel: level }),
+
+  // Chat & Arsenal Actions
+  sendChatMessage: async (content: string) => {
+    const text = content.trim();
+    if (!text) return;
+
+    const userMsgId = `msg-user-${Date.now()}`;
+    const assistantMsgId = `msg-asst-${Date.now()}`;
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    const attached = [...get().attachedFiles];
+    const isThinking = get().isThinkingEnabled;
+    const thinkingBudget = get().thinkingBudget;
+    const isSearch = get().isWebSearchEnabled;
+    const searchMode = get().webSearchMode;
+    const isCode = get().isCodeExecMode;
+    const isImg = get().isImageGenMode;
+    const currentModel = get().selectedModel;
+
+    // 1. Append User Message
+    const userMessage: ChatMessage = {
+      id: userMsgId,
+      role: "user",
+      content: text,
+      timestamp,
+      attachedFiles: attached.length > 0 ? attached : undefined,
+    };
+
+    set((s) => ({
+      chatMessages: [...s.chatMessages, userMessage],
+      attachedFiles: [],
+      isGenerating: true,
+    }));
+
+    // 2. Simulate AI Processing & Tool Invocations
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    const toolCalls: ChatToolCall[] = [];
+    if (isSearch) {
+      toolCalls.push({
+        name: searchMode === "onion" ? "tor.onion_search" : "clearnet.web_search",
+        icon: "Globe",
+        input: text,
+        output: searchMode === "onion" 
+          ? "Found 4 verified .onion hidden technical resources" 
+          : "Retrieved 6 relevant documentation entries",
+        latencyMs: 165,
+        status: "success"
+      });
+    }
+
+    if (isCode) {
+      toolCalls.push({
+        name: "virtual_conpty.exec",
+        icon: "Terminal",
+        input: text.slice(0, 50),
+        output: "Process exited with code 0 (all invariants preserved)",
+        latencyMs: 82,
+        status: "success"
+      });
+    }
+
+    let responseText = "";
+    if (text.toLowerCase().includes("diff") || text.toLowerCase().includes("ast")) {
+      responseText = `I have inspected the AST representation for your request.\n\n\`\`\`rust\n// Character-exact syn validation\npub fn validate_ast(tokens: &TokenStream) -> Result<(), SynError> {\n    syn::parse2::<File>(tokens.clone()).map(|_| ()).map_err(Into::into)\n}\n\`\`\`\n\nAll AST invariants were verified with **0 compiler hazards**.`;
+    } else if (text.toLowerCase().includes("tor") || text.toLowerCase().includes("onion")) {
+      responseText = `Routed securely through the Tor SOCKS5 circuit at \`127.0.0.1:9050\`.\n\n3-hop circuit verified:\n- **Guard**: Frankfurt (25ms)\n- **Relay**: Amsterdam (31ms)\n- **Exit**: Zurich (42ms)\n\nZero outbound clearnet leaks detected.`;
+    } else if (text.toLowerCase().includes("image") || isImg) {
+      responseText = `Generated conceptual design architecture and schematic layout for your query.\n\n- **Type**: Vector SVG High-DPI Spatial Diagram\n- **Aesthetic**: Warm Alabaster Roman Editorial\n- **Target**: Sovereign Autonomous Workstation`;
+    } else {
+      responseText = `Analyzed your objective: "${text}".\n\n### Execution Breakdown:\n1. **Context Resolution**: Ingested active workspace dependencies.\n2. **Security & Air-Gap**: Verified zero network data leakage.\n3. **Synthesis**: Formulated optimized solution with recursive proof.`;
+    }
+
+    const tokenMultiplier = thinkingBudget === "max" ? 3200 : thinkingBudget === "deep" ? 1400 : 600;
+
+    const assistantMessage: ChatMessage = {
+      id: assistantMsgId,
+      role: "assistant",
+      model: currentModel === "deepseek-r1" ? "DeepSeek R1 (Inline CoT)" : currentModel === "claude-3-7-sonnet" ? "Claude 3.7 Sonnet (Thinking)" : currentModel,
+      content: responseText,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      thinking: isThinking ? {
+        durationSecs: +(1.8 + Math.random() * 2.5).toFixed(1),
+        tokens: tokenMultiplier + Math.floor(Math.random() * 200),
+        summary: `Decomposed goal into sub-steps, validated parameters, and evaluated air-gap isolation rules.`,
+        steps: [
+          `Phase 1: Parsed goal "${text.slice(0, 45)}..."`,
+          `Phase 2: Verified symbol dependencies and security constraints.`,
+          `Phase 3: Synthesized structured output with cognitive graph validation.`
+        ],
+        expanded: false
+      } : undefined,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      metrics: {
+        tokPerSec: +(130 + Math.random() * 35).toFixed(1),
+        totalTokens: tokenMultiplier + 250,
+        latencyMs: 2200
+      }
+    };
+
+    set((s) => ({
+      chatMessages: [...s.chatMessages, assistantMessage],
+      isGenerating: false,
+    }));
+  },
+
+  toggleThinking: () => set((s) => ({ isThinkingEnabled: !s.isThinkingEnabled })),
+  setThinkingBudget: (b) => set({ thinkingBudget: b }),
+  toggleWebSearch: () => set((s) => ({ isWebSearchEnabled: !s.isWebSearchEnabled })),
+  setWebSearchMode: (m) => set({ webSearchMode: m }),
+  toggleImageGenMode: () => set((s) => ({ isImageGenMode: !s.isImageGenMode })),
+  toggleCodeExecMode: () => set((s) => ({ isCodeExecMode: !s.isCodeExecMode })),
+  toggleMcpModal: () => set((s) => ({ isMcpModalOpen: !s.isMcpModalOpen })),
+  
+  toggleMcpTool: (serverId, toolName) => {
+    set((s) => ({
+      mcpServers: s.mcpServers.map((srv) =>
+        srv.id === serverId
+          ? {
+              ...srv,
+              tools: srv.tools.map((t) => t.name === toolName ? { ...t, enabled: !t.enabled } : t)
+            }
+          : srv
+      )
+    }));
+  },
+
+  toggleMcpServer: (serverId) => {
+    set((s) => ({
+      mcpServers: s.mcpServers.map((srv) =>
+        srv.id === serverId
+          ? { ...srv, status: srv.status === "connected" ? "disabled" : "connected" }
+          : srv
+      )
+    }));
+  },
+
+  attachFile: (filePath) => {
+    set((s) => ({
+      attachedFiles: s.attachedFiles.includes(filePath) ? s.attachedFiles : [...s.attachedFiles, filePath]
+    }));
+  },
+
+  removeAttachedFile: (filePath) => {
+    set((s) => ({
+      attachedFiles: s.attachedFiles.filter((f) => f !== filePath)
+    }));
+  },
+
+  clearChat: () => set({ chatMessages: [] }),
+
+  forkThoughtToCanvas: (messageId) => {
+    const msg = get().chatMessages.find((m) => m.id === messageId);
+    if (msg) {
+      get().addCanvasNode("prompt");
+      set({ activeView: "canvas" });
+    }
+  },
+
+  setActiveInspectGraphMessageId: (id) => set({ activeInspectGraphMessageId: id }),
 
   // Smart Intent Router
   handleSmartPrompt: (input) => {

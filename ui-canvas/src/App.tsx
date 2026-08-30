@@ -5,6 +5,7 @@ import { SidebarExplorer } from "./components/layout/SidebarExplorer";
 import { TelemetryHUD } from "./components/layout/TelemetryHUD";
 import { OmniBar } from "./components/layout/OmniBar";
 import { HomepageView } from "./components/home/HomepageView";
+import { ChatStudioView } from "./components/chat/ChatStudioView";
 import { SpatialCanvas } from "./components/canvas/SpatialCanvas";
 import { TorSandboxedBrowserView } from "./components/browser/TorSandboxedBrowserView";
 import { LiveExecutionDAG } from "./components/dag/LiveExecutionDAG";
@@ -14,6 +15,7 @@ import { ASTDiffStudioView } from "./components/diff/ASTDiffStudioView";
 import { MultiAgentSwarmView } from "./components/swarm/MultiAgentSwarmView";
 import { ShortcutsModal } from "./components/modals/ShortcutsModal";
 import { SessionExportModal } from "./components/modals/SessionExportModal";
+import { McpToolsModal } from "./components/modals/McpToolsModal";
 
 export const App: React.FC = () => {
   const { 
@@ -110,6 +112,7 @@ export const App: React.FC = () => {
       {/* Modals */}
       <ShortcutsModal />
       <SessionExportModal />
+      <McpToolsModal />
 
       {/* Top Navigation */}
       <HeaderNav />
@@ -121,12 +124,12 @@ export const App: React.FC = () => {
 
       {/* Main App Workspace */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Collapsible Left Explorer Sidebar (Hidden on Home page for minimalism) */}
+        {/* Collapsible Left Explorer Sidebar (Hidden on Chat Studio for immersion) */}
         {activeView !== "home" && <SidebarExplorer />}
 
         {/* Dynamic Viewport Surface */}
         <main className="flex-1 flex overflow-hidden relative">
-          {activeView === "home" && <HomepageView />}
+          {activeView === "home" && <ChatStudioView />}
           {activeView === "canvas" && <SpatialCanvas />}
           {activeView === "browser" && <TorSandboxedBrowserView />}
           {activeView === "dag" && <LiveExecutionDAG />}

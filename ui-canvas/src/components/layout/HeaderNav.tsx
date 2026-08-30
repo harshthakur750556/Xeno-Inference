@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { 
   useWorkspaceStore, 
   ViewMode, 
@@ -7,6 +7,7 @@ import {
 import { useXenoWebSocket } from "../../hooks/useXenoWebSocket";
 import { 
   Home,
+  MessageSquare,
   LayoutGrid, 
   Globe,
   GitFork, 
@@ -43,11 +44,12 @@ export const HeaderNav: React.FC = () => {
     toggleShortcuts,
     toggleExport,
     soundEnabled,
-    toggleSound
+    toggleSound,
+    toggleMcpModal
   } = useWorkspaceStore();
 
   const navTabs: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: "home", label: "Home", icon: <Home className="w-3.5 h-3.5" /> },
+    { id: "home", label: "Chat Studio", icon: <MessageSquare className="w-3.5 h-3.5" /> },
     { id: "canvas", label: "Canvas", icon: <LayoutGrid className="w-3.5 h-3.5" /> },
     { id: "browser", label: "Tor Browser", icon: <Globe className="w-3.5 h-3.5" /> },
     { id: "dag", label: "DAG", icon: <GitFork className="w-3.5 h-3.5" /> },
@@ -146,8 +148,15 @@ export const HeaderNav: React.FC = () => {
           {themeMode === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
         </button>
 
-        {/* QOL Utilities: Export, Shortcuts, Sound */}
+        {/* QOL Utilities: Export, Shortcuts, Sound, MCP */}
         <div className="flex items-center space-x-1 pl-1 border-l border-stone-200 dark:border-stone-800">
+          <button
+            onClick={toggleMcpModal}
+            className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-600 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 transition-all"
+            title="MCP Tools Arsenal"
+          >
+            <Cpu className="w-4 h-4 text-amber-500" />
+          </button>
           <button
             onClick={toggleExport}
             className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 hover:border-stone-400 dark:hover:border-stone-600 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 transition-all"
