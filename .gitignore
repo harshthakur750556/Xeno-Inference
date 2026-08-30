@@ -1,13 +1,11 @@
-﻿# Rust / Cargo
+# Rust / Cargo
 /target/
 **/*.rs.bk
 Cargo.lock.bak
 
 # Node / Frontend
 node_modules/
-/ui-canvas/node_modules/
-/ui-canvas/dist/
-/ui-canvas/dist-ssr/
+dist/
 *.local
 
 # Tauri Build

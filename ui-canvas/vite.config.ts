@@ -1,27 +1,15 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import fs from "node:fs";
-
-// Synchronize cwd with realpath to prevent junction relative path mismatches
-try {
-  const realCwd = fs.realpathSync(process.cwd());
-  if (realCwd !== process.cwd()) {
-    process.chdir(realCwd);
-  }
-} catch {
-  // Ignore fallback
-}
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   server: {
     port: 5173,
-    strictPort: true,
+    host: true,
   },
   build: {
-    target: ["es2022", "chrome105", "safari13"],
-    minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
-    sourcemap: !!process.env.TAURI_ENV_DEBUG,
-  },
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1200,
+  }
 });

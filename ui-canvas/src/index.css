@@ -1,122 +1,88 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-@layer base {
-  :root {
-    --font-display: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
-    --font-serif: 'Lora', 'Cormorant Garamond', Georgia, serif;
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace;
-    
-    /* White Aesthetic / Editorial Luxury Tokens */
-    --bg-main: #fbfaf7;
-    --bg-surface: #ffffff;
-    --bg-subtle: #f4f3ee;
-    --border-color: #e5e3dc;
-    --border-subtle: #eeece6;
-    --text-primary: #1c1917;
-    --text-secondary: #57534e;
-    --text-muted: #8c857b;
-    
-    --accent-bronze: #925f2e;
-    --accent-slate: #334155;
-    --accent-emerald: #15803d;
-    --accent-crimson: #991b1b;
-  }
-
-  .dark {
-    --bg-main: #0c0d11;
-    --bg-surface: #14161c;
-    --bg-subtle: #1c1f26;
-    --border-color: #262933;
-    --border-subtle: #1e2129;
-    --text-primary: #f3f4f6;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
-    
-    --accent-bronze: #d97706;
-    --accent-slate: #94a3b8;
-    --accent-emerald: #22c55e;
-    --accent-crimson: #ef4444;
-  }
-
-  body {
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    overflow: hidden;
-    user-select: none;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  h1, h2, h3, .font-display {
-    font-family: var(--font-display);
-    letter-spacing: -0.01em;
-  }
-
-  .font-editorial {
-    font-family: var(--font-serif);
-  }
-
-  .font-mono {
-    font-family: var(--font-mono);
-  }
+:root {
+  color-scheme: dark;
 }
 
-/* White Aesthetic Grid & Canvas Textures */
-.canvas-grid-pattern {
-  background-size: 28px 28px;
-  background-image: radial-gradient(circle, rgba(140, 133, 123, 0.2) 1px, transparent 1px);
+body {
+  background-color: #030306;
+  color: #f1f5f9;
+  font-family: 'Syne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
 }
 
-.dark .canvas-grid-pattern {
-  background-size: 28px 28px;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+/* Custom Roman Serif Font Utilities */
+.font-roman {
+  font-family: 'Cinzel', 'Cinzel Decorative', 'Times New Roman', serif;
 }
 
-/* Subtle Card Hover & Elevation */
-.card-elevation {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+.font-roman-decorative {
+  font-family: 'Cinzel Decorative', 'Cinzel', serif;
 }
 
-.card-elevation:hover {
-  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-.dark .card-elevation {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(10, 10, 18, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.dark .card-elevation:hover {
-  box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.5);
+.glass-panel-glow {
+  background: rgba(12, 12, 24, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 35px -10px rgba(139, 92, 246, 0.25), 0 0 15px -5px rgba(0, 245, 212, 0.2);
 }
 
-/* Elegant Scrollbars */
+.glass-panel-cyan {
+  background: rgba(8, 16, 24, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  box-shadow: 0 0 30px -10px rgba(0, 245, 212, 0.2);
+}
+
+/* Custom Cyber Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #05050a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(140, 133, 123, 0.25);
-  border-radius: 4px;
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(140, 133, 123, 0.45);
+  background: rgba(0, 245, 212, 0.5);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+/* Animated Grid Background */
+.cyber-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+/* Shimmer overlay for loading/streaming */
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-shimmer-sweep {
+  animation: shimmer-sweep 2.5s infinite linear;
 }
