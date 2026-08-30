@@ -3,7 +3,7 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { Terminal, Shield, Trash2, CheckCircle2, Play, Sparkles, Cpu, HardDrive } from "lucide-react";
 
 export const SandboxedTerminalView: React.FC = () => {
-  const { terminalLogs, executeCommand, clearTerminalLogs, securityTier, systemMetrics, isAirGapped } = useWorkspaceStore();
+  const { terminalLogs, executeCommand, clearTerminalLogs, systemMetrics, isAirGapped } = useWorkspaceStore();
   const [cmdInput, setCmdInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +23,7 @@ export const SandboxedTerminalView: React.FC = () => {
     { label: "sysinfo", cmd: "sysinfo" },
     { label: "gpu", cmd: "gpu" },
     { label: "models", cmd: "models" },
+    { label: "providers", cmd: "providers" },
     { label: "eval 2**10", cmd: "eval Math.pow(2, 10)" },
     { label: "help", cmd: "help" },
   ];
@@ -51,7 +52,7 @@ export const SandboxedTerminalView: React.FC = () => {
 
           <button
             onClick={clearTerminalLogs}
-            className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-stone-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-stone-100 transition-colors cursor-pointer"
             title="Clear Terminal Output"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -89,7 +90,7 @@ export const SandboxedTerminalView: React.FC = () => {
         <div ref={endRef} />
       </div>
 
-      {/* Quick Action Command Chips for Mobile / Fast Execution */}
+      {/* Quick Action Command Chips */}
       <div className="px-3 sm:px-6 py-2 border-t border-stone-800 bg-stone-950/70 flex items-center space-x-2 overflow-x-auto select-none shrink-0">
         <span className="text-stone-500 uppercase text-[9px] font-bold">Quick:</span>
         {quickCommands.map((qc) => (
@@ -117,7 +118,7 @@ export const SandboxedTerminalView: React.FC = () => {
           type="text"
           value={cmdInput}
           onChange={(e) => setCmdInput(e.target.value)}
-          placeholder="Execute shell command (sysinfo, gpu, eval, help)..."
+          placeholder="Execute shell command (sysinfo, gpu, models, providers, eval, help)..."
           className="flex-1 bg-transparent text-xs sm:text-sm text-stone-100 placeholder:text-stone-500 outline-none font-mono"
         />
         <button

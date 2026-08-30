@@ -1,27 +1,23 @@
-import React, { useState } from "react";
+import React from "react";
 import { useWorkspaceStore, ViewMode } from "../../stores/workspaceStore";
 import { 
   MessageSquare,
   LayoutGrid, 
   Globe, 
-  GitFork, 
   BrainCircuit, 
   Terminal, 
   FileCode, 
-  Users, 
   Cpu, 
-  Folder, 
-  FolderOpen,
   FileJson, 
   Keyboard, 
   Volume2, 
   VolumeX, 
   ShieldCheck, 
   ShieldAlert, 
-  ChevronDown, 
-  ChevronRight, 
   X,
-  Sparkles
+  Sparkles,
+  Key,
+  Box
 } from "lucide-react";
 
 export const AppSidebar: React.FC = () => {
@@ -33,6 +29,7 @@ export const AppSidebar: React.FC = () => {
     toggleMcpModal,
     toggleExport,
     toggleShortcuts,
+    openProviderModal,
     soundEnabled,
     toggleSound,
     isAirGapped,
@@ -41,26 +38,13 @@ export const AppSidebar: React.FC = () => {
     mcpServers,
   } = useWorkspaceStore();
 
-  const [isFilesSectionOpen, setIsFilesSectionOpen] = useState(false);
-  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
-    "crates": true,
-    "crates/xeno-tools": true,
-    "crates/xeno-router": true,
-  });
-
-  const toggleFolder = (path: string) => {
-    setOpenFolders((prev) => ({ ...prev, [path]: !prev[path] }));
-  };
-
   const navItems: { id: ViewMode; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: "home", label: "Chat Studio", icon: <MessageSquare className="w-4 h-4" /> },
-    { id: "canvas", label: "Spatial Canvas", icon: <LayoutGrid className="w-4 h-4" /> },
-    { id: "browser", label: "Tor Browser", icon: <Globe className="w-4 h-4" />, badge: "9050" },
-    { id: "dag", label: "Live Execution DAG", icon: <GitFork className="w-4 h-4" /> },
-    { id: "timeline", label: "Thinking Timeline", icon: <BrainCircuit className="w-4 h-4" /> },
+    { id: "thinking", label: "Thinking Studio", icon: <BrainCircuit className="w-4 h-4 text-amber-500" />, badge: "Swarm/DAG" },
+    { id: "canvas", label: "Creative Canvas", icon: <LayoutGrid className="w-4 h-4 text-blue-500" />, badge: "3D CAD" },
+    { id: "diff", label: "AST Diff Studio", icon: <FileCode className="w-4 h-4 text-purple-500" /> },
     { id: "terminal", label: "Virtual Terminal", icon: <Terminal className="w-4 h-4" />, badge: "PTY" },
-    { id: "diff", label: "AST Diff Studio", icon: <FileCode className="w-4 h-4" /> },
-    { id: "swarm", label: "Swarm Council", icon: <Users className="w-4 h-4" /> },
+    { id: "browser", label: "Tor Browser", icon: <Globe className="w-4 h-4 text-emerald-500" />, badge: "9050" },
   ];
 
   const activeMcpTools = mcpServers.reduce(
@@ -76,7 +60,7 @@ export const AppSidebar: React.FC = () => {
   return (
     <aside 
       className={`
-        fixed inset-y-0 left-0 z-50 w-72 lg:w-64 h-full border-r border-stone-200/90 dark:border-stone-800/90 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl flex flex-col shrink-0 select-none transition-transform duration-300 shadow-2xl lg:shadow-sm lg:static
+        fixed inset-y-0 left-0 z-50 w-72 lg:w-64 h-full border-r border-stone-200/90 dark:border-stone-800/90 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl flex flex-col shrink-0 select-none transition-transform duration-300 shadow-2xl lg:shadow-xs lg:static
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}
     >
@@ -89,7 +73,6 @@ export const AppSidebar: React.FC = () => {
           </span>
         </div>
         
-        {/* Close Button on Mobile */}
         <button
           onClick={() => setSidebarOpen(false)}
           className="lg:hidden p-1.5 rounded-lg text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
@@ -99,14 +82,14 @@ export const AppSidebar: React.FC = () => {
       </div>
 
       {/* Main Views Section */}
-      <div className="p-2.5 space-y-1 overflow-y-auto flex-1">
+      <div className="p-2.5 space-y-1 overflow-y-auto flex-1 font-mono text-xs">
         {navItems.map((item) => {
           const isActive = activeView === item.id;
           return (
             <button
               key={item.id}
               onClick={() => handleSelectView(item.id)}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition-all duration-150 text-left ${
+              className={`w-full px-3 py-2.5 rounded-xl font-medium flex items-center justify-between transition-all duration-150 text-left cursor-pointer ${
                 isActive
                   ? "bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 shadow-sm font-semibold"
                   : "text-stone-600 dark:text-stone-400 hover:bg-stone-100/80 dark:hover:bg-stone-800/80 hover:text-stone-900 dark:hover:text-stone-100"
@@ -131,76 +114,49 @@ export const AppSidebar: React.FC = () => {
           );
         })}
 
-        {/* Tools & Arsenal Section */}
-        <div className="pt-3 mt-3 border-t border-stone-200/80 dark:border-stone-800/80">
+        {/* Tools & Settings Section */}
+        <div className="pt-3 mt-3 border-t border-stone-200/80 dark:border-stone-800/80 space-y-1">
           <div className="px-2 pb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-semibold tracking-wider uppercase text-stone-400 dark:text-stone-500 font-mono">
-              Tools & Extensions
+              Inference & Tools
             </span>
           </div>
+
+          {/* Provider & API Keys Modal Trigger */}
+          <button
+            onClick={() => { openProviderModal(); setSidebarOpen(false); }}
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
+          >
+            <div className="flex items-center space-x-2.5">
+              <Key className="w-4 h-4 text-amber-500" />
+              <span>Providers & Keys</span>
+            </div>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 font-bold">
+              Config
+            </span>
+          </button>
 
           {/* MCP Tools Trigger */}
           <button
             onClick={() => { toggleMcpModal(); setSidebarOpen(false); }}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
-              <Cpu className="w-4 h-4 text-amber-500" />
+              <Cpu className="w-4 h-4 text-blue-500" />
               <span>MCP Arsenal</span>
             </div>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
-              {activeMcpTools} Ready
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400">
+              {activeMcpTools} Armed
             </span>
           </button>
-
-          {/* Collapsible Workspace File Tree Toggle */}
-          <button
-            onClick={() => setIsFilesSectionOpen(!isFilesSectionOpen)}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
-          >
-            <div className="flex items-center space-x-2.5">
-              <Folder className="w-4 h-4 text-blue-500" />
-              <span>Workspace Files</span>
-            </div>
-            {isFilesSectionOpen ? <ChevronDown className="w-3.5 h-3.5 text-stone-400" /> : <ChevronRight className="w-3.5 h-3.5 text-stone-400" />}
-          </button>
-
-          {/* File Explorer Tree */}
-          {isFilesSectionOpen && (
-            <div className="pl-4 pr-1 py-1 space-y-1 font-mono text-[11px] text-stone-600 dark:text-stone-400 border-l border-stone-200 dark:border-stone-800 ml-4 my-1">
-              <div 
-                onClick={() => toggleFolder("crates/xeno-tools")}
-                className="flex items-center space-x-1.5 py-0.5 cursor-pointer hover:text-stone-900 dark:hover:text-stone-200"
-              >
-                <FolderOpen className="w-3 h-3 text-amber-500" />
-                <span>xeno-tools/</span>
-              </div>
-              {openFolders["crates/xeno-tools"] && (
-                <div className="pl-3.5 space-y-1">
-                  <div className="flex items-center space-x-1.5 py-0.5 hover:text-blue-500 cursor-pointer">
-                    <FileCode className="w-2.5 h-2.5 text-stone-400" />
-                    <span>ast_validator.rs</span>
-                  </div>
-                  <div className="flex items-center space-x-1.5 py-0.5 hover:text-blue-500 cursor-pointer">
-                    <FileCode className="w-2.5 h-2.5 text-stone-400" />
-                    <span>file_engine.rs</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Air-Gap Guard Toggle */}
           <button
             onClick={toggleAirGap}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
-              {isAirGapped ? (
-                <ShieldAlert className="w-4 h-4 text-amber-500" />
-              ) : (
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              )}
+              {isAirGapped ? <ShieldAlert className="w-4 h-4 text-amber-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
               <span>Air-Gap Guard</span>
             </div>
             <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
@@ -215,7 +171,7 @@ export const AppSidebar: React.FC = () => {
           {/* Session Export */}
           <button
             onClick={() => { toggleExport(); setSidebarOpen(false); }}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
               <FileJson className="w-4 h-4 text-stone-500" />
@@ -227,7 +183,7 @@ export const AppSidebar: React.FC = () => {
           {/* Shortcuts */}
           <button
             onClick={() => { toggleShortcuts(); setSidebarOpen(false); }}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
               <Keyboard className="w-4 h-4 text-stone-500" />
@@ -239,14 +195,10 @@ export const AppSidebar: React.FC = () => {
           {/* Audio Feedback */}
           <button
             onClick={toggleSound}
-            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left"
+            className="w-full px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 flex items-center justify-between transition-colors text-left cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-stone-600 dark:text-stone-300" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-stone-400" />
-              )}
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-stone-600 dark:text-stone-300" /> : <VolumeX className="w-4 h-4 text-stone-400" />}
               <span>Audio Feedback</span>
             </div>
             <span className="text-[9px] font-mono text-stone-400">

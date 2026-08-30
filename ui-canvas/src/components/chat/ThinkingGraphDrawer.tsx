@@ -18,7 +18,8 @@ export const ThinkingGraphDrawer: React.FC = () => {
     activeInspectGraphMessageId, 
     setActiveInspectGraphMessageId, 
     chatMessages, 
-    setActiveView 
+    setActiveView,
+    setThinkingActiveTab 
   } = useWorkspaceStore();
 
   if (!activeInspectGraphMessageId) return null;
@@ -51,7 +52,7 @@ export const ThinkingGraphDrawer: React.FC = () => {
 
         <button
           onClick={() => setActiveInspectGraphMessageId(null)}
-          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors cursor-pointer"
           title="Close Drawer"
         >
           <X className="w-4 h-4" />
@@ -110,16 +111,17 @@ export const ThinkingGraphDrawer: React.FC = () => {
           </div>
         </div>
 
-        {/* Full View Transition Action Cards */}
+        {/* View Transitions */}
         <div className="space-y-2.5 pt-2">
           <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-            Explore Full Workstation Views
+            Explore Full Workstation Hubs
           </span>
 
           <button
             onClick={() => {
               setActiveInspectGraphMessageId(null);
-              setActiveView("dag");
+              setActiveView("thinking");
+              setThinkingActiveTab("dag");
             }}
             className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-stone-900 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all flex items-center justify-between text-left group cursor-pointer"
           >
@@ -129,7 +131,7 @@ export const ThinkingGraphDrawer: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-stone-900 dark:text-stone-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  Open in Live Execution DAG
+                  Open in Execution DAG
                 </h4>
                 <p className="text-[11px] text-stone-500 font-editorial">
                   Interactive multi-agent topological dependency graph
@@ -142,7 +144,8 @@ export const ThinkingGraphDrawer: React.FC = () => {
           <button
             onClick={() => {
               setActiveInspectGraphMessageId(null);
-              setActiveView("timeline");
+              setActiveView("thinking");
+              setThinkingActiveTab("timeline");
             }}
             className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-800 bg-white dark:bg-stone-900 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 transition-all flex items-center justify-between text-left group cursor-pointer"
           >
@@ -175,10 +178,10 @@ export const ThinkingGraphDrawer: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-stone-900 dark:text-stone-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  Inspect in Spatial Canvas
+                  Inspect in Infinite Canvas
                 </h4>
                 <p className="text-[11px] text-stone-500 font-editorial">
-                  Manipulate nodes on 2D infinite spatial whiteboard
+                  Manipulate 3D CAD & nodes on unbounded creative surface
                 </p>
               </div>
             </div>
@@ -191,7 +194,7 @@ export const ThinkingGraphDrawer: React.FC = () => {
       <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-950/50 flex justify-end">
         <button
           onClick={() => setActiveInspectGraphMessageId(null)}
-          className="px-4 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors"
+          className="px-4 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors cursor-pointer"
         >
           Dismiss Drawer
         </button>

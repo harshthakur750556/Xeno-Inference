@@ -5,17 +5,23 @@ import { AppSidebar } from "./components/layout/AppSidebar";
 import { TelemetryHUD } from "./components/layout/TelemetryHUD";
 import { OmniBar } from "./components/layout/OmniBar";
 import { ChatStudioView } from "./components/chat/ChatStudioView";
+import { UnifiedThinkingView } from "./components/thinking/UnifiedThinkingView";
 import { SpatialCanvas } from "./components/canvas/SpatialCanvas";
 import { TorSandboxedBrowserView } from "./components/browser/TorSandboxedBrowserView";
-import { LiveExecutionDAG } from "./components/dag/LiveExecutionDAG";
-import { DeepThinkingTimeline } from "./components/timeline/DeepThinkingTimeline";
 import { SandboxedTerminalView } from "./components/terminal/SandboxedTerminalView";
 import { ASTDiffStudioView } from "./components/diff/ASTDiffStudioView";
-import { MultiAgentSwarmView } from "./components/swarm/MultiAgentSwarmView";
 import { ShortcutsModal } from "./components/modals/ShortcutsModal";
 import { SessionExportModal } from "./components/modals/SessionExportModal";
 import { McpToolsModal } from "./components/modals/McpToolsModal";
-import { MessageSquare, LayoutGrid, Terminal, FileCode, Users, GitFork, Globe, BrainCircuit } from "lucide-react";
+import { ModelProviderModal } from "./components/modals/ModelProviderModal";
+import { 
+  MessageSquare, 
+  BrainCircuit, 
+  LayoutGrid, 
+  FileCode, 
+  Terminal, 
+  Globe 
+} from "lucide-react";
 
 export const App: React.FC = () => {
   const { 
@@ -98,9 +104,9 @@ export const App: React.FC = () => {
         return;
       }
 
-      const views: ViewMode[] = ["home", "canvas", "browser", "dag", "timeline", "terminal", "diff", "swarm"];
+      const views: ViewMode[] = ["home", "thinking", "canvas", "diff", "terminal", "browser"];
       const keyNum = parseInt(e.key, 10);
-      if (keyNum >= 1 && keyNum <= 8) {
+      if (keyNum >= 1 && keyNum <= views.length) {
         e.preventDefault();
         setActiveView(views[keyNum - 1]);
       }
@@ -111,11 +117,11 @@ export const App: React.FC = () => {
   }, [setActiveView, toggleSidebar, setSidebarOpen, toggleShortcuts, toggleExport, isShortcutsOpen, isExportOpen, isSidebarOpen]);
 
   const mobileNavItems: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: "home", label: "Chat", icon: <MessageSquare className="w-4 h-4" /> },
+    { id: "home", label: "Studio", icon: <MessageSquare className="w-4 h-4" /> },
+    { id: "thinking", label: "Thinking", icon: <BrainCircuit className="w-4 h-4" /> },
     { id: "canvas", label: "Canvas", icon: <LayoutGrid className="w-4 h-4" /> },
-    { id: "terminal", label: "Term", icon: <Terminal className="w-4 h-4" /> },
     { id: "diff", label: "Diff", icon: <FileCode className="w-4 h-4" /> },
-    { id: "swarm", label: "Swarm", icon: <Users className="w-4 h-4" /> },
+    { id: "terminal", label: "Term", icon: <Terminal className="w-4 h-4" /> },
   ];
 
   return (
@@ -124,18 +130,19 @@ export const App: React.FC = () => {
       <ShortcutsModal />
       <SessionExportModal />
       <McpToolsModal />
+      <ModelProviderModal />
 
       {/* Top Header Navigation */}
       <HeaderNav />
 
-      {/* Real-Time Floating Telemetry HUD (Shown on spatial / canvas / swarm / dag views) */}
-      {(activeView === "canvas" || activeView === "swarm" || activeView === "dag") && (
+      {/* Real-Time Floating Telemetry HUD (Shown on canvas view) */}
+      {activeView === "canvas" && (
         <TelemetryHUD />
       )}
 
       {/* Main Workspace Frame */}
       <div className="flex-1 flex overflow-hidden relative w-full">
-        {/* Responsive Mobile Drawer Backdrop */}
+        {/* Mobile Drawer Backdrop */}
         {isSidebarOpen && (
           <div 
             onClick={() => setSidebarOpen(false)}
@@ -149,17 +156,15 @@ export const App: React.FC = () => {
         {/* Dynamic Viewport Surface */}
         <main className="flex-1 flex flex-col overflow-hidden relative w-full h-full">
           {activeView === "home" && <ChatStudioView />}
+          {activeView === "thinking" && <UnifiedThinkingView />}
           {activeView === "canvas" && <SpatialCanvas />}
-          {activeView === "browser" && <TorSandboxedBrowserView />}
-          {activeView === "dag" && <LiveExecutionDAG />}
-          {activeView === "timeline" && <DeepThinkingTimeline />}
-          {activeView === "terminal" && <SandboxedTerminalView />}
           {activeView === "diff" && <ASTDiffStudioView />}
-          {activeView === "swarm" && <MultiAgentSwarmView />}
+          {activeView === "terminal" && <SandboxedTerminalView />}
+          {activeView === "browser" && <TorSandboxedBrowserView />}
         </main>
       </div>
 
-      {/* Mobile Quick Bottom View Bar (Shown on small screens for fast one-thumb switching) */}
+      {/* Mobile Quick Bottom Navigation Bar */}
       <div className="md:hidden h-14 border-t border-stone-200/90 dark:border-stone-800/90 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl px-2 flex items-center justify-around z-30 shrink-0">
         {mobileNavItems.map((item) => {
           const isActive = activeView === item.id;
@@ -169,7 +174,7 @@ export const App: React.FC = () => {
               onClick={() => setActiveView(item.id)}
               className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
                 isActive
-                  ? "text-amber-600 dark:text-amber-400 font-bold"
+                  ? "text-amber-700 dark:text-amber-400 font-bold"
                   : "text-stone-500 hover:text-stone-800 dark:hover:text-stone-300"
               }`}
             >

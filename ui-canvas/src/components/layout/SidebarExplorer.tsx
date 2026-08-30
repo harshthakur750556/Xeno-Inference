@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { 
   Folder, 
@@ -6,16 +6,14 @@ import {
   FileCode, 
   Wrench, 
   FlaskConical, 
-  ShieldCheck, 
   ChevronRight, 
   ChevronDown,
   CheckCircle2,
-  Terminal as TerminalIcon,
   Bot
 } from "lucide-react";
 
 export const SidebarExplorer: React.FC = () => {
-  const { isSidebarOpen, swarmAgents, activeView, setActiveView } = useWorkspaceStore();
+  const { isSidebarOpen, swarmAgents, setActiveView, setThinkingActiveTab } = useWorkspaceStore();
   const [activeTab, setActiveTab] = useState<"files" | "tools" | "tests">("files");
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
     "crates": true,
@@ -224,7 +222,10 @@ export const SidebarExplorer: React.FC = () => {
           {swarmAgents.map((ag) => (
             <div
               key={ag.role}
-              onClick={() => setActiveView("swarm")}
+              onClick={() => {
+                setActiveView("thinking");
+                setThinkingActiveTab("swarm");
+              }}
               className="w-7 h-7 rounded-full border-2 border-white dark:border-stone-900 bg-stone-200 dark:bg-stone-800 flex items-center justify-center text-[10px] font-bold text-stone-700 dark:text-stone-300 cursor-pointer hover:scale-110 transition-transform shadow-sm"
               title={`${ag.title} (${ag.model})`}
             >
