@@ -1,9 +1,8 @@
-import React from 'react';
 import { TelemetryHUD } from './components/TelemetryHUD';
 import { CicadaHeroSvg } from './components/CicadaHeroSvg';
 import { SystemBootTerminal } from './components/SystemBootTerminal';
 import { ChatInterface } from './components/ChatInterface';
-import { Sparkles, Terminal, ArrowDown, Shield, Cpu, Zap, Layers } from 'lucide-react';
+import { Sparkles, Terminal, ArrowDown, Cpu } from 'lucide-react';
 
 export function App() {
   const scrollToChat = () => {

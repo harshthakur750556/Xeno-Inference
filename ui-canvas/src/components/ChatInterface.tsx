@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Send, Sparkles, Bot, User, Code2, Terminal, Network, 
-  ChevronRight, Paperclip, Mic, Cpu, Settings2, CheckCircle2,
-  Copy, RefreshCw
+  Send, Sparkles, Bot, User, ChevronRight, Paperclip, Cpu, RefreshCw
 } from 'lucide-react';
 
 interface ChatMessage {

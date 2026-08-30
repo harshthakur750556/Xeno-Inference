@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Zap, Cpu, Terminal, Radio, Sparkles } from 'lucide-react';
+import { Shield, Zap, Cpu, Sparkles } from 'lucide-react';
 
 export const TelemetryHUD: React.FC = () => {
   return (

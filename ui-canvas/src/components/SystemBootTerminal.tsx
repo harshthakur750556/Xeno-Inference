@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PuzzleBoxLoader } from './PuzzleBoxLoader';
-import { Terminal, Activity, Cpu, Network, ShieldCheck, Zap } from 'lucide-react';
+import { Terminal, Activity, Cpu, Network, Zap } from 'lucide-react';
 
 const BOOT_LOGS = [
   { level: 'SYS', text: 'INIT KERNEL :: Xeno-Inference Core v2.4.0 (x86_64-quantum)', color: 'text-violet-400' },
