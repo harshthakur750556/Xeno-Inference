@@ -4,7 +4,6 @@ import { HeaderNav } from "./components/layout/HeaderNav";
 import { AppSidebar } from "./components/layout/AppSidebar";
 import { TelemetryHUD } from "./components/layout/TelemetryHUD";
 import { OmniBar } from "./components/layout/OmniBar";
-import { HomepageView } from "./components/home/HomepageView";
 import { ChatStudioView } from "./components/chat/ChatStudioView";
 import { SpatialCanvas } from "./components/canvas/SpatialCanvas";
 import { TorSandboxedBrowserView } from "./components/browser/TorSandboxedBrowserView";
@@ -16,12 +15,15 @@ import { MultiAgentSwarmView } from "./components/swarm/MultiAgentSwarmView";
 import { ShortcutsModal } from "./components/modals/ShortcutsModal";
 import { SessionExportModal } from "./components/modals/SessionExportModal";
 import { McpToolsModal } from "./components/modals/McpToolsModal";
+import { MessageSquare, LayoutGrid, Terminal, FileCode, Users, GitFork, Globe, BrainCircuit } from "lucide-react";
 
 export const App: React.FC = () => {
   const { 
     activeView, 
     setActiveView, 
     toggleSidebar, 
+    isSidebarOpen,
+    setSidebarOpen,
     toggleShortcuts, 
     toggleExport, 
     isShortcutsOpen, 
@@ -33,21 +35,23 @@ export const App: React.FC = () => {
   // Sync Theme with Document Root and Body
   useEffect(() => {
     if (typeof document !== "undefined") {
+      const root = document.documentElement;
+      const body = document.body;
       if (themeMode === "dark") {
-        document.documentElement.classList.add("dark");
-        document.documentElement.classList.remove("light");
-        document.body.classList.add("dark");
-        document.body.classList.remove("light");
+        root.classList.add("dark");
+        root.classList.remove("light");
+        body.classList.add("dark");
+        body.classList.remove("light");
       } else {
-        document.documentElement.classList.remove("dark");
-        document.documentElement.classList.add("light");
-        document.body.classList.remove("dark");
-        document.body.classList.add("light");
+        root.classList.remove("dark");
+        root.classList.add("light");
+        body.classList.remove("dark");
+        body.classList.add("light");
       }
     }
   }, [themeMode]);
 
-  // Dynamic Telemetry Parameter Engine (Updates real parameters every 1 second)
+  // Dynamic Telemetry Engine Tick
   useEffect(() => {
     const interval = setInterval(() => {
       updateMetricsTick();
@@ -58,7 +62,6 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore when typing in input or textarea
       if (
         e.target instanceof HTMLInputElement || 
         e.target instanceof HTMLTextAreaElement || 
@@ -73,6 +76,7 @@ export const App: React.FC = () => {
       if (e.key === "Escape") {
         if (isShortcutsOpen) toggleShortcuts();
         if (isExportOpen) toggleExport();
+        if (isSidebarOpen) setSidebarOpen(false);
         return;
       }
 
@@ -94,7 +98,6 @@ export const App: React.FC = () => {
         return;
       }
 
-      // 1-8 View Switcher
       const views: ViewMode[] = ["home", "canvas", "browser", "dag", "timeline", "terminal", "diff", "swarm"];
       const keyNum = parseInt(e.key, 10);
       if (keyNum >= 1 && keyNum <= 8) {
@@ -105,30 +108,46 @@ export const App: React.FC = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setActiveView, toggleSidebar, toggleShortcuts, toggleExport, isShortcutsOpen, isExportOpen]);
+  }, [setActiveView, toggleSidebar, setSidebarOpen, toggleShortcuts, toggleExport, isShortcutsOpen, isExportOpen, isSidebarOpen]);
+
+  const mobileNavItems: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
+    { id: "home", label: "Chat", icon: <MessageSquare className="w-4 h-4" /> },
+    { id: "canvas", label: "Canvas", icon: <LayoutGrid className="w-4 h-4" /> },
+    { id: "terminal", label: "Term", icon: <Terminal className="w-4 h-4" /> },
+    { id: "diff", label: "Diff", icon: <FileCode className="w-4 h-4" /> },
+    { id: "swarm", label: "Swarm", icon: <Users className="w-4 h-4" /> },
+  ];
 
   return (
-    <div className="w-screen h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col justify-between relative overflow-hidden font-sans select-none transition-colors duration-200">
-      {/* Modals */}
+    <div className="w-full h-dvh max-h-dvh bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col justify-between relative overflow-hidden font-sans select-none transition-colors duration-300">
+      {/* Universal Modals */}
       <ShortcutsModal />
       <SessionExportModal />
       <McpToolsModal />
 
-      {/* Top Navigation */}
+      {/* Top Header Navigation */}
       <HeaderNav />
 
-      {/* Real-Time Floating Telemetry HUD (Shown on Canvas, Swarm, and DAG modes) */}
+      {/* Real-Time Floating Telemetry HUD (Shown on spatial / canvas / swarm / dag views) */}
       {(activeView === "canvas" || activeView === "swarm" || activeView === "dag") && (
         <TelemetryHUD />
       )}
 
-      {/* Main App Workspace */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Sleek Workstation Navigation Sidebar */}
+      {/* Main Workspace Frame */}
+      <div className="flex-1 flex overflow-hidden relative w-full">
+        {/* Responsive Mobile Drawer Backdrop */}
+        {isSidebarOpen && (
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
+          />
+        )}
+
+        {/* Sidebar Component */}
         <AppSidebar />
 
         {/* Dynamic Viewport Surface */}
-        <main className="flex-1 flex overflow-hidden relative">
+        <main className="flex-1 flex flex-col overflow-hidden relative w-full h-full">
           {activeView === "home" && <ChatStudioView />}
           {activeView === "canvas" && <SpatialCanvas />}
           {activeView === "browser" && <TorSandboxedBrowserView />}
@@ -140,8 +159,35 @@ export const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Bottom Command & Routing Omni-Bar (Shown on non-home pages) */}
-      {activeView !== "home" && <OmniBar />}
+      {/* Mobile Quick Bottom View Bar (Shown on small screens for fast one-thumb switching) */}
+      <div className="md:hidden h-14 border-t border-stone-200/90 dark:border-stone-800/90 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl px-2 flex items-center justify-around z-30 shrink-0">
+        {mobileNavItems.map((item) => {
+          const isActive = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveView(item.id)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+                isActive
+                  ? "text-amber-600 dark:text-amber-400 font-bold"
+                  : "text-stone-500 hover:text-stone-800 dark:hover:text-stone-300"
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${isActive ? "bg-amber-50 dark:bg-amber-950/60" : ""}`}>
+                {item.icon}
+              </div>
+              <span className="text-[10px] font-medium tracking-tight mt-0.5">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bottom Command & Routing Omni-Bar (Shown on desktop non-home pages) */}
+      {activeView !== "home" && (
+        <div className="hidden md:block">
+          <OmniBar />
+        </div>
+      )}
     </div>
   );
 };

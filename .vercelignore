@@ -1,0 +1,8 @@
+target/
+crates/
+tests/
+.git/
+.github/
+*.rs
+Cargo.lock
+Cargo.toml

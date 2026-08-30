@@ -1,11 +1,10 @@
-﻿import React, { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { PromptCanvasNode } from "./nodes/PromptCanvasNode";
 import { AgentCanvasNode } from "./nodes/AgentCanvasNode";
 import { CodeEditorCanvasNode } from "./nodes/CodeEditorCanvasNode";
 import { DiffCanvasNode } from "./nodes/DiffCanvasNode";
 import { NodePaletteBar } from "./NodePaletteBar";
-import { CanvasMiniMap } from "./CanvasMiniMap";
 import { ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
 
 export const SpatialCanvas: React.FC = () => {
@@ -51,6 +50,29 @@ export const SpatialCanvas: React.FC = () => {
     setDraggingNodeId(null);
   };
 
+  // Touch Support for Mobile Viewports
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: touch.clientX - canvasPan.x, y: touch.clientY - canvasPan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPanning && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setCanvasPan({
+        x: touch.clientX - panStart.x,
+        y: touch.clientY - panStart.y,
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+  };
+
   const startNodeDrag = (nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedNodeId(nodeId);
@@ -64,7 +86,6 @@ export const SpatialCanvas: React.FC = () => {
     }
   };
 
-  // Render dynamic cubic bezier paths connecting nodes sequentially
   const renderConnectors = () => {
     if (canvasNodes.length < 2) return null;
     const paths: React.ReactNode[] = [];
@@ -73,11 +94,10 @@ export const SpatialCanvas: React.FC = () => {
       const source = canvasNodes[i];
       const target = canvasNodes[i + 1];
 
-      // Approximate center connection points
-      const sx = source.x + 360;
-      const sy = source.y + 70;
+      const sx = source.x + 320;
+      const sy = source.y + 60;
       const tx = target.x;
-      const ty = target.y + 70;
+      const ty = target.y + 60;
 
       const dx = Math.abs(tx - sx) * 0.5;
       const pathData = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
@@ -95,7 +115,7 @@ export const SpatialCanvas: React.FC = () => {
             cx={tx}
             cy={ty}
             r="4"
-            className="fill-stone-600 dark:fill-stone-400"
+            className="fill-amber-500"
           />
         </g>
       );
@@ -109,19 +129,19 @@ export const SpatialCanvas: React.FC = () => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className="flex-1 relative w-full h-[calc(100vh-3.5rem)] overflow-hidden canvas-grid-pattern cursor-grab active:cursor-grabbing bg-stone-100/70 dark:bg-stone-950 transition-colors duration-200"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex-1 relative w-full h-full overflow-hidden canvas-grid-pattern cursor-grab active:cursor-grabbing bg-stone-100/60 dark:bg-stone-950 transition-colors duration-200"
     >
       {/* Floating Node Palette */}
       <NodePaletteBar />
 
-      {/* Radar Mini-Map */}
-      <CanvasMiniMap />
-
-      {/* Zoom Controls Overlay */}
-      <div className="absolute bottom-28 right-6 z-20 flex items-center space-x-1 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl shadow-lg">
+      {/* Zoom Controls (Positioned cleanly for mobile and desktop) */}
+      <div className="absolute bottom-6 sm:bottom-8 right-4 sm:right-6 z-20 flex items-center space-x-1 p-1 rounded-2xl border border-stone-200/90 dark:border-stone-800/90 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl shadow-lg">
         <button
           onClick={() => setCanvasScale(Math.min(canvasScale + 0.15, 2.5))}
-          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-all"
+          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 transition-all cursor-pointer"
           title="Zoom In"
         >
           <ZoomIn className="w-4 h-4" />
@@ -131,26 +151,18 @@ export const SpatialCanvas: React.FC = () => {
         </span>
         <button
           onClick={() => setCanvasScale(Math.max(canvasScale - 0.15, 0.4))}
-          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-all"
+          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 transition-all cursor-pointer"
           title="Zoom Out"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
           onClick={() => { setCanvasScale(1.0); setCanvasPan({ x: 0, y: 0 }); }}
-          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-all"
+          className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 transition-all cursor-pointer"
           title="Reset Viewport"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
-      </div>
-
-      {/* Viewport Info Pill */}
-      <div className="absolute bottom-28 left-48 z-20 flex items-center space-x-2 px-3 py-1 rounded-xl border border-stone-200 dark:border-stone-800 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md text-[10px] font-mono text-stone-500 shadow-sm">
-        <Move className="w-3 h-3 text-stone-400" />
-        <span>Pan: {Math.round(canvasPan.x)}, {Math.round(canvasPan.y)}</span>
-        <span>•</span>
-        <span>Nodes: {canvasNodes.length}</span>
       </div>
 
       {/* Infinite Canvas Surface with Transform Matrix */}
@@ -161,12 +173,10 @@ export const SpatialCanvas: React.FC = () => {
         }}
         className="absolute inset-0 w-full h-full pointer-events-none"
       >
-        {/* SVG Bezier Connectors Layer */}
         <svg className="absolute inset-0 w-[5000px] h-[5000px] pointer-events-none overflow-visible">
           {renderConnectors()}
         </svg>
 
-        {/* Polymorphic Node Cards Container */}
         <div className="absolute inset-0 pointer-events-auto">
           {canvasNodes.map((node) => {
             const isSelected = selectedNodeId === node.id;
