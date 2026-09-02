@@ -1,112 +1,209 @@
-# 🌌 XENO INFERENCE — High-Throughput Neural AI Acceleration
+<div align="center">
 
-A cutting-edge AI inference web and desktop application built with a **TypeScript (React + Tailwind CSS)** frontend and a **Rust (Axum + Tokio)** backend.
+# X E N O &nbsp; I N F E R E N C E
 
----
-
-## ✨ Features & Architecture
-
-### 1. 🦋 Split-Page 3-Second Opening Animation
-- **Pure Black Void Background (`#000000`)** with dynamic ambient **Aurora Borealis** atmospheric light curtains.
-- **Left Column:**
-  - **"XENO"**: Classical Roman / Romanian Serif typography (*Cinzel Decorative*) in metallic silver with glowing luster.
-  - **"INFERENCE"**: Fluid Calligraphy cursive script (*Great Vibes / Alex Brush*) with glowing animated stroke entrance.
-  - **Command Terminal in Half Blurry Gradient**: A frosted glassmorphic HUD (`backdrop-blur-2xl bg-black/60 border border-purple-500/20`) blended softly into the black background, executing real-time bootloader logs (`[KERNEL]`, `[VRAM]`, `[QUANT]`, `[BRIDGE]`, `[ONLINE]`).
-  - **Animated Neon Progress Bar**: Real-time progress tracker animating smoothly from **0% to 100%** in synchrony with the 3.0s timeline.
-- **Right Column:**
-  - **User-Specified Butterfly SVG (`Untitled.svg`)**: 22 detailed vector paths brought to life with living, breathing **Aurora Gradient Animations** (`#00F5D4` emerald -> `#7B2CBF` cosmic purple -> `#FF007F` neon pink -> `#00BBF9` cyan -> `#FEE440` amber) with 3D perspective flutters and stardust particles.
-- **Timeline:** Exactly **3.0 seconds** followed by a smooth cinematic cross-fade into the AI Chat Interface (with a *Replay Intro* button to re-trigger at any time).
-
----
-
-### 2. ⚡ AI Inference Chat Interface
-- **Real-Time Token Streaming:** Server-Sent Events (SSE) streaming at **>90 tokens/sec** with sub-100ms Time-To-First-Token (TTFT).
-- **DeepSeek-R1 Style Chain of Thought:** Collapsible reasoning block displaying neural thought traces step-by-step.
-- **Multi-Model Selector:**
-  - 🧠 `Xeno DeepSeek-R1 (70B MoE Reasoning)`
-  - 🚀 `Xeno 70B Ultra (Omni Flagship)`
-  - 🦙 `Xeno Llama-3.3 (70B Instruct)`
-  - ⚡ `Xeno Quantum-Fast (8B Edge Kernel)`
-- **Hardware Telemetry HUD:** Real-time VRAM allocation, PagedAttention KV-Cache buffers, throughput counters, and CPU load.
-- **Throughput Micro-Benchmark Tool:** Live micro-pass testing token emission speed (tok/s) and latency.
-- **Multimodal & Voice Input:** Speech recognition voice dictation and code/text file attachments.
-- **Syntax Highlighted Code Blocks:** One-click copy, line counters, and language badges.
-
----
-
-### 3. 🦀 Native Rust Backend (Axum + Tokio)
-- **Zero-Copy Asynchronous Streaming:** Uses `tokio_stream` and `axum::response::sse::Sse` for maximum concurrent throughput.
-- **REST & SSE Endpoints:**
-  - `GET  /api/health` — Engine health, memory allocation, and version.
-  - `GET  /api/models` — Available model catalog and context limits.
-  - `POST /api/chat/stream` — Real-time SSE token stream with reasoning tokens.
-  - `POST /api/benchmark` — Hardware micro-benchmarks.
-  - `GET  /api/telemetry` — Live telemetry snapshot.
-- **Zero-Friction Fallback:** Includes an embedded client-side neural simulation engine so the UI remains 100% functional even before the backend daemon starts.
-
----
-
-## 🚀 Quick Start Guide
-
-### Prerequisites
-- **Node.js**: v18+ (tested on Node v26)
-- **Rust / Cargo** (optional for native Rust backend)
-
-### Install & Launch
-
-```bash
-# 1. Start both Frontend and Backend concurrently
-npm run dev
-
-# Or run separately:
-# Frontend (Vite on http://localhost:5173)
-npm run dev:frontend
-
-# Backend (Axum/Node SSE server on http://localhost:3001)
-npm run dev:backend
+```
+  ██████╗  ██╗  ███████╗ ███╗   ██╗  ██████╗ 
+  ╚════██╗ ██║  ██╔════╝ ████╗  ██║ ██╔═══██╗
+   █████╔╝ ██║  █████╗   ██╔██╗ ██║ ██║   ██║
+  ██╔═══╝  ██║  ██╔══╝   ██║╚██╗██║ ██║   ██║
+  ███████╗ ██║  ███████╗ ██║ ╚████║ ╚██████╔╝
+  ╚══════╝ ╚═╝  ╚══════╝ ╚═╝  ╚═══╝  ╚═════╝ 
+        HIGH-THROUGHPUT NEURAL ACCELERATION ENGINE
 ```
 
-### Build for Production
+<p align="center">
+  <b>Architectural Monolith for Real-Time LLM Token Streaming & Tensor Telemetry</b><br>
+  Engineered with TypeScript, React 19, and Native Rust Axum Runtimes.
+</p>
 
-```bash
-# Compile TypeScript frontend bundle
-npm run build:frontend
+<p align="center">
+  <img src="https://img.shields.io/badge/REACT-19.0-000000?style=flat-square&logo=react&logoColor=white" alt="React 19" />
+  <img src="https://img.shields.io/badge/TYPESCRIPT-5.7-000000?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/RUST-1.85-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/AXUM-0.8-000000?style=flat-square&logo=rust&logoColor=white" alt="Axum" />
+  <img src="https://img.shields.io/badge/TOKIO-ASYNC-000000?style=flat-square&logo=rust&logoColor=white" alt="Tokio" />
+  <img src="https://img.shields.io/badge/TAILWIND-V4-000000?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/VERCEL-DEPLOYED-000000?style=flat-square&logo=vercel&logoColor=white" alt="Vercel" />
+</p>
 
-# Compile Rust backend binary
-npm run build:backend
+---
+
+</div>
+
+## OVERVIEW
+
+Xeno Inference is an AI inference workstation engineered for high-density neural computation, low-latency token streaming, and real-time hardware telemetry. 
+
+The system couples a **TypeScript React** frontend with an asynchronous **Rust Axum/Tokio** backend daemon, delivering deterministic token emission pipelines with sub-100ms Time-To-First-Token (TTFT).
+
+```
++-------------------------------------------------------------------------------+
+|                             CLIENT WORKSPACE (TS)                             |
+|  +-------------------------------------------------------------------------+  |
+|  | [10s Split Welcome]  [Streaming Chat]  [Reasoning HUD]  [Telemetry HUD] |  |
+|  +-------------------------------------------------------------------------+  |
+|                                     |                                         |
+|                         HTTP / SSE EventStream                                |
+|                                     v                                         |
+|                             RUST DAEMON (AXUM)                                |
+|  +-------------------------------------------------------------------------+  |
+|  |  Axum Router <---> Tokio Async Engine <---> SIMD Tensor Quantization    |  |
+|  |  Atomic Telemetry Collector           <---> PagedAttention KV-Buffer    |  |
+|  +-------------------------------------------------------------------------+  |
++-------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 📂 Project Structure
+## ARCHITECTURAL CAPABILITIES
+
+### 1. 10-Second Split Startup Sequence
+
+- **Pure Black Void Aesthetic (`#000000`)**: Deep-contrast monochromatic visual architecture.
+- **Two-Line Monolithic Typography**:
+  - `XENO` in Roman Serif (*Cinzel*) with wide letter tracking.
+  - `Inference` in Calligraphy cursive script (*Alex Brush*) appearing with smooth stroke opacity transitions.
+- **Unboxed 3-Line Rolling Command Stream**:
+  - Live kernel execution logs displayed in a borderless 3-line rolling viewport.
+  - Realistic execution cadence with inline ASCII allocation meters:
+    - `> [VRAM] KV-Cache Allocation: [████████░░░░░░░░] 50% (16.0 GB)`
+    - `> [VRAM] PagedAttention Buffer: [████████████████] 100% (32.0 GB Ready)`
+    - `> [QUANT] Calibrating BF16 / FP8: [████████████░░░░] 75% (SIMD Active)`
+    - `> [SPARSE] Attention Density:  ▂▃▅▆▇█▇▆▅▃  (128k context verified)`
+    - `> [BRIDGE] IPC Channel with Rust Daemon: [████████████████] 100% (<0.4ms)`
+  - Older lines slide upward and fade into the background.
+- **Precision Hairline Progress Track**: 2px linear progression indicator calibrated to the 10.0s sequence.
+- **Static Vector Artwork**: 22-path vector filigree rendered with `geometricPrecision` in high-contrast monochrome silver.
+
+---
+
+### 2. High-Throughput Inference Console
+
+- **Zero-Latency SSE Streaming**: High-speed token generation with real-time word rendering.
+- **DeepSeek-R1 Chain of Thought**: Collapsible neural reasoning drawer displaying step-by-step logic traces.
+- **Multi-Model Selector**:
+  - `xeno-deepseek-r1` // 70B MoE Deep Reasoning Architecture
+  - `xeno-70b-ultra` // 70B Flagship Generalist Tensor Pipeline
+  - `xeno-llama-3.3` // 70B Instruct Dense Transformer
+  - `xeno-quantum-8b` // 8B Ultra-Fast Edge Kernel
+- **Hardware Telemetry HUD**: Live metrics monitoring VRAM allocation, active SSE connections, and memory bandwidth (GB/s).
+- **Throughput Micro-Benchmark Tool**: Automated evaluation harness measuring token emission velocity (tok/s) and TTFT latency.
+
+---
+
+## SYSTEM REPOSITORY STRUCTURE
 
 ```
-D:\Xeno-Inference
-├── frontend/
+Xeno-Inference/
+├── frontend/                         # TypeScript / React 19 Frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ButterflySvg.tsx      # Exact user SVG with Aurora animations
-│   │   │   ├── SplashIntro.tsx       # 3-second split-screen opening sequence
-│   │   │   ├── ChatInterface.tsx     # Full AI inference streaming chat app
-│   │   │   ├── ThinkingBlock.tsx     # Deep reasoning / Chain-of-thought
-│   │   │   ├── CodeBlock.tsx         # Syntax-highlighted code viewer
-│   │   │   ├── TelemetryModal.tsx    # Live engine metrics & VRAM HUD
-│   │   │   ├── BenchmarkModal.tsx    # Neural throughput benchmark tool
-│   │   │   └── SettingsModal.tsx     # Inference parameters & temperature
+│   │   │   ├── ButterflySvg.tsx      # Sharp monochrome vector artwork
+│   │   │   ├── XenoLogo.tsx          # Minimalist geometric XENO nexus emblem
+│   │   │   ├── SplashIntro.tsx       # 10s split-screen startup sequence
+│   │   │   ├── ChatInterface.tsx     # Monochromatic AI streaming workspace
+│   │   │   ├── ThinkingBlock.tsx     # Chain-of-thought accordion
+│   │   │   ├── CodeBlock.tsx         # Syntax-highlighted code container
+│   │   │   ├── TelemetryModal.tsx    # Rust engine metrics HUD
+│   │   │   ├── BenchmarkModal.tsx    # Throughput benchmark runner
+│   │   │   └── SettingsModal.tsx     # Inference hyperparameters modal
 │   │   ├── services/
-│   │   │   └── api.ts                # Rust Axum SSE client & fallback engine
-│   │   ├── types.ts                  # TypeScript interface definitions
-│   │   ├── index.css                 # Tailwind 4 + Aurora Borealis keyframes
+│   │   │   └── api.ts                # Axum SSE client & fallback simulation
+│   │   ├── types.ts                  # TypeScript schemas & DTOs
+│   │   ├── index.css                 # Monochrome base styling & typography
 │   │   └── App.tsx                   # Master router & state transitions
-│   └── index.html                    # Google Fonts (Roman Serif & Calligraphy)
-├── backend/
+│   ├── public/
+│   │   └── favicon.svg               # Application emblem
+│   ├── vercel.json                   # Subdirectory deployment configuration
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/                          # Native Rust Engine (Axum + Tokio)
 │   ├── src/
-│   │   ├── main.rs                   # Axum web server & SSE stream router
-│   │   ├── models.rs                 # Serde DTOs & Chat structs
-│   │   ├── engine.rs                 # Neural tensor inference pipeline
+│   │   ├── main.rs                   # Axum HTTP/SSE server & router
+│   │   ├── models.rs                 # Serde DTOs & token stream structures
+│   │   ├── engine.rs                 # Neural tensor synthesis pipeline
 │   │   └── telemetry.rs              # Atomic telemetry counter
-│   ├── server.js                     # High-speed local SSE server
-│   └── Cargo.toml                    # Rust crate dependencies
-├── start-dev.js                      # Multi-process development runner
-└── package.json                      # Workspace root scripts
+│   ├── server.js                     # High-speed local SSE fallback daemon
+│   └── Cargo.toml                    # Rust dependencies
+├── vercel.json                       # Root repository deployment configuration
+├── package.json                      # Workspace scripts
+└── start-dev.js                      # Concurrent process runner
 ```
+
+---
+
+## API SPECIFICATION
+
+The backend daemon exposes REST and Server-Sent Events (SSE) endpoints on port `3001`:
+
+| Method | Endpoint | Description | Response Type |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | Daemon status, memory allocation, and version | `application/json` |
+| `GET` | `/api/models` | Supported model catalog and context windows | `application/json` |
+| `POST` | `/api/chat/stream` | Real-time Server-Sent Events token stream | `text/event-stream` |
+| `POST` | `/api/benchmark` | Forward-pass latency micro-benchmark | `application/json` |
+| `GET` | `/api/telemetry` | Atomic engine metrics, VRAM usage, bandwidth | `application/json` |
+
+---
+
+## QUICKSTART
+
+### Requirements
+- Node.js `v18+` (Tested on Node `v26.x`)
+- Rust & Cargo (Optional for compiling native Rust binary)
+
+### Installation & Execution
+
+```bash
+# Clone repository
+git clone https://github.com/harshthakur750556/Xeno-Inference.git
+cd Xeno-Inference
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Launch development environment (Frontend + Backend concurrently)
+npm run dev
+```
+
+### Direct Subsystem Commands
+
+```bash
+# Frontend only (Vite on http://localhost:5173)
+npm run dev:frontend
+
+# Backend only (SSE Daemon on http://localhost:3001)
+npm run dev:backend
+
+# Production build
+npm run build:frontend
+```
+
+---
+
+## VERCEL DEPLOYMENT CONFIGURATION
+
+When deploying to Vercel:
+
+| Parameter | Recommended Value |
+| :--- | :--- |
+| **Root Directory** | `frontend` |
+| **Framework Preset** | `Vite` |
+| **Build Command** | `npm run build` |
+| **Output Directory** | `dist` |
+| **Install Command** | `npm install` |
+
+> Root and frontend `vercel.json` configurations are pre-configured in the repository for zero-configuration deployments.
+
+---
+
+<div align="center">
+
+```
+[+] XENO INFERENCE // DETERMINISTIC COMPUTE // VERSION 4.2
+```
+
+**Designed and Built for Next-Generation Neural Acceleration.**
+
+</div>
