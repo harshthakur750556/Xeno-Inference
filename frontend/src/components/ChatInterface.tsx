@@ -26,11 +26,20 @@ import {
   RefreshCw,
   Sparkles,
   X,
+  Eye,
+  Edit3,
+  Bold,
+  Italic,
+  Code2,
+  List,
+  Binary,
+  Layers,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
 import { ThinkingBlock } from './ThinkingBlock';
-import { CodeBlock } from './CodeBlock';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { CanvasPanel } from './CanvasPanel';
 import { SettingsModal } from './SettingsModal';
 import { TelemetryModal } from './TelemetryModal';
 import { BenchmarkModal } from './BenchmarkModal';
@@ -68,7 +77,16 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { command: '/code', label: 'Write Code', description: 'Generate production-ready Rust/TypeScript modules', promptPrefix: 'Write a clean, optimized, production-grade implementation of: ' },
   { command: '/debug', label: 'Debug & Profile', description: 'Analyze memory, concurrency or syntax errors', promptPrefix: 'Analyze, debug, and provide fixes for the following issue: ' },
   { command: '/summarize', label: 'Summarize', description: 'Distill complex technical texts into key takeaways', promptPrefix: 'Summarize the core technical findings and architecture of: ' },
+  { command: '/canvas', label: 'Create Artifact', description: 'Generate a standalone full-file Canvas artifact', promptPrefix: 'Generate a comprehensive Canvas artifact with complete code/document for: ' },
   { command: '/system', label: 'System Architecture', description: 'Design scalable distributed zero-copy pipelines', promptPrefix: 'Design a high-throughput, low-latency system architecture for: ' },
+];
+
+const RESPONSE_FORMATS = [
+  { id: 'auto', label: 'Auto (Markdown)', promptSuffix: '' },
+  { id: 'code', label: 'Code Only', promptSuffix: '\n\n[FORMAT CONSTRAINT: Return ONLY clean executable code inside markdown code fences with zero conversational filler.]' },
+  { id: 'json', label: 'JSON Schema', promptSuffix: '\n\n[FORMAT CONSTRAINT: Return valid structured JSON matching the requested schema with zero explanatory text.]' },
+  { id: 'latex', label: 'LaTeX Math', promptSuffix: '\n\n[FORMAT CONSTRAINT: Provide rigorous mathematical derivations with LaTeX syntax in $$...$$ blocks.]' },
+  { id: 'canvas', label: 'Canvas Artifact', promptSuffix: '\n\n[FORMAT CONSTRAINT: Package the output as an extensive standalone modular file suitable for an interactive Canvas.]' },
 ];
 
 const STARTER_PROMPTS = [
@@ -125,6 +143,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
   const [liveThinkingDurationMs, setLiveThinkingDurationMs] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  // Input Mode (Write vs Live Markdown Preview) & Response Format
+  const [inputTab, setInputTab] = useState<'write' | 'preview'>('write');
+  const [selectedFormat, setSelectedFormat] = useState<string>('auto');
+  const [isFormatDropdownOpen, setIsFormatDropdownOpen] = useState(false);
+
+  // Interactive Canvas State
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
+  const [canvasTitle, setCanvasTitle] = useState('Neural Module');
+  const [canvasLanguage, setCanvasLanguage] = useState('rust');
+  const [canvasContent, setCanvasContent] = useState('');
 
   // Slash Commands Popover State
   const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
@@ -292,11 +321,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
     setEditingSessionId(null);
   };
 
+  // Open in Canvas handler
+  const handleOpenInCanvas = (title: string, language: string, code: string) => {
+    setCanvasTitle(title);
+    setCanvasLanguage(language);
+    setCanvasContent(code);
+    setIsCanvasOpen(true);
+  };
+
   // Handle Sending Message
   const handleSendMessage = async (textToSend?: string) => {
-    const promptText = (textToSend || input).trim();
+    let promptText = (textToSend || input).trim();
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
+
+    // Apply response format constraints if specified
+    const formatOption = RESPONSE_FORMATS.find((f) => f.id === selectedFormat);
+    if (formatOption && formatOption.promptSuffix) {
+      promptText += formatOption.promptSuffix;
+    }
 
     // Check if new session needs auto-title
     let currentSessionId = activeSessionId;
@@ -328,6 +371,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
     setInput('');
     setAttachments([]);
     setIsSlashMenuOpen(false);
+    setInputTab('write');
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -374,6 +418,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
         setMessages(finalizedMessages);
         updateSession(currentSessionId!, (s) => ({ ...s, messages: finalizedMessages }));
         setSessions(getStoredSessions());
+
+        // If response has large code and canvas requested, auto-fill canvas
+        if (selectedFormat === 'canvas' || accumulatedContent.includes('```')) {
+          const match = accumulatedContent.match(/```(\w+)?\n([\s\S]*?)```/);
+          if (match) {
+            setCanvasLanguage(match[1] || 'code');
+            setCanvasContent(match[2]);
+            setCanvasTitle('Generated Artifact');
+          }
+        }
 
         setIsStreaming(false);
         setStreamingReasoning('');
@@ -462,6 +516,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
     setThinkingStartTime(null);
   };
 
+  // Quick Markdown formatting helpers for input
+  const insertMarkdownSyntax = (prefix: string, suffix: string = '') => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const selected = input.substring(start, end);
+    const replacement = prefix + (selected || 'text') + suffix;
+    const updated = input.substring(0, start) + replacement + input.substring(end);
+    setInput(updated);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(start + prefix.length, start + prefix.length + (selected ? selected.length : 4));
+      }
+    }, 10);
+  };
+
   // Handle File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -532,7 +603,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
         setSpeakingMessageId(null);
       } else {
         window.speechSynthesis.cancel();
-        const cleanText = text.replace(/```[\\s\\S]*?```/g, 'Code block omitted.').replace(/[#*_`]/g, '');
+        const cleanText = text.replace(/```[\s\S]*?```/g, 'Code block omitted.').replace(/[#*_`]/g, '');
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.rate = 1.05;
         utterance.pitch = 1.0;
@@ -582,49 +653,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
   const filteredSessions = sessions.filter((s) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  // Render Formatted Markdown & Syntax Blocks
-  const renderFormattedContent = (content: string) => {
-    const parts = content.split(/(```[\\s\\S]*?```)/g);
-
-    return parts.map((part, index) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
-        const lines = part.slice(3, -3).split('\n');
-        const lang = lines[0].trim();
-        const code = lines.slice(1).join('\n');
-        return <CodeBlock key={index} language={lang} code={code} />;
-      }
-
-      return (
-        <div key={index} className="space-y-2 text-xs sm:text-[13.5px] leading-relaxed text-zinc-100 whitespace-pre-wrap font-sans">
-          {part.split('\n\n').map((para, pIdx) => {
-            if (para.startsWith('### ')) {
-              return (
-                <h3 key={pIdx} className="text-sm sm:text-base font-semibold text-white mt-3 mb-1 tracking-wide">
-                  {para.replace('### ', '')}
-                </h3>
-              );
-            }
-            if (para.startsWith('#### ')) {
-              return (
-                <h4 key={pIdx} className="text-xs sm:text-sm font-semibold text-zinc-300 mt-2 mb-1">
-                  {para.replace('#### ', '')}
-                </h4>
-              );
-            }
-            if (para.startsWith('> ')) {
-              return (
-                <blockquote key={pIdx} className="border-l-2 border-zinc-600 pl-3 py-1 my-1.5 text-zinc-400 italic">
-                  {para.replace('> ', '')}
-                </blockquote>
-              );
-            }
-            return <p key={pIdx}>{para}</p>;
-          })}
-        </div>
-      );
-    });
-  };
 
   return (
     <div className="flex h-[100dvh] w-screen bg-[#000000] text-white overflow-hidden select-none font-sans">
@@ -862,6 +890,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
           {/* Right Header Action Icons */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             
+            {/* Canvas Toggle Button */}
+            <button
+              onClick={() => setIsCanvasOpen(!isCanvasOpen)}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
+                isCanvasOpen
+                  ? 'bg-white text-black border-white'
+                  : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white'
+              }`}
+              title="Toggle interactive Canvas workspace"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Canvas</span>
+            </button>
+
             {/* Export Session Dropdown */}
             <div className="relative">
               <button
@@ -870,7 +912,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                 title="Export conversation"
               >
                 <Download className="w-3.5 h-3.5 text-zinc-300" />
-                <span className="hidden sm:inline">Export</span>
+                <span className="hidden md:inline">Export</span>
               </button>
 
               {isExportDropdownOpen && (
@@ -903,7 +945,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
               title="Replay intro animation"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
-              <span className="hidden sm:inline">Intro</span>
+              <span className="hidden md:inline">Intro</span>
             </button>
 
             <button
@@ -1019,13 +1061,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                     </div>
                   )}
 
-                  {/* Message Bubble Body */}
+                  {/* Message Bubble Body (Luxury Obsidian Design) */}
                   <div
                     className={
-                      'rounded-2xl p-3.5 sm:p-5 select-text shadow-xl ' +
+                      'rounded-2xl p-4 sm:p-5 select-text shadow-xl relative transition duration-200 ' +
                       (isUser
-                        ? 'bg-zinc-100 text-black font-normal rounded-tr-none'
-                        : 'bg-[#0b0b0e] border border-zinc-800 text-zinc-100 rounded-tl-none')
+                        ? 'bg-[#121217] border border-white/10 text-zinc-100 rounded-tr-sm'
+                        : 'bg-[#09090c] border border-white/[0.08] text-zinc-100 rounded-tl-sm')
                     }
                   >
                     {!isUser && msg.reasoning && (
@@ -1042,29 +1084,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                           <textarea
                             value={editMessageContent}
                             onChange={(e) => setEditMessageContent(e.target.value)}
-                            className="w-full p-2 bg-white text-black rounded-lg text-xs font-sans border border-zinc-400 focus:outline-none"
+                            className="w-full p-2.5 bg-black text-white rounded-lg text-xs font-sans border border-zinc-600 focus:outline-none"
                             rows={3}
                           />
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setEditingMessageId(null)}
-                              className="px-2.5 py-1 rounded text-[11px] text-zinc-600 hover:text-black transition"
+                              className="px-2.5 py-1 rounded text-[11px] text-zinc-400 hover:text-white transition"
                             >
                               Cancel
                             </button>
                             <button
                               onClick={() => handleSaveEditMessage(msg.id)}
-                              className="px-3 py-1 rounded bg-black text-white text-[11px] font-semibold transition"
+                              className="px-3 py-1 rounded bg-white text-black text-[11px] font-semibold transition cursor-pointer"
                             >
                               Save & Submit
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                          <MarkdownRenderer content={msg.content} onOpenCanvas={handleOpenInCanvas} />
+                        </div>
                       )
                     ) : (
-                      renderFormattedContent(msg.content)
+                      <MarkdownRenderer content={msg.content} onOpenCanvas={handleOpenInCanvas} />
                     )}
                   </div>
 
@@ -1124,6 +1168,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                           </button>
 
                           <button
+                            onClick={() => handleOpenInCanvas('Response Canvas', 'markdown', msg.content)}
+                            className="hover:text-white transition cursor-pointer p-0.5"
+                            title="Open in Canvas"
+                          >
+                            <Layers className="w-3 h-3" />
+                          </button>
+
+                          <button
                             onClick={handleRegenerate}
                             className="hover:text-white transition cursor-pointer p-0.5"
                             title="Regenerate response"
@@ -1153,7 +1205,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
               </div>
 
               <div className="flex flex-col space-y-1.5 sm:space-y-2 max-w-[92%] sm:max-w-[85%] md:max-w-[80%]">
-                <div className="rounded-2xl p-3.5 sm:p-5 bg-[#0b0b0e] border border-zinc-800 text-zinc-100 rounded-tl-none shadow-xl">
+                <div className="rounded-2xl p-4 sm:p-5 bg-[#09090c] border border-white/[0.08] text-zinc-100 rounded-tl-sm shadow-xl">
                   {(streamingReasoning || isThinkingActive) && (
                     <ThinkingBlock
                       reasoning={streamingReasoning}
@@ -1164,7 +1216,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
 
                   {streamingContent ? (
                     <div>
-                      {renderFormattedContent(streamingContent)}
+                      <MarkdownRenderer content={streamingContent} onOpenCanvas={handleOpenInCanvas} />
                       <span className="inline-block w-2 h-4 ml-1 bg-white animate-pulse align-middle" />
                     </div>
                   ) : !streamingReasoning ? (
@@ -1186,7 +1238,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
           <div ref={messagesEndRef} />
         </main>
 
-        {/* ================= MODERN CHAT INPUT OMNIBAR ================= */}
+        {/* ================= MODERN CHAT INPUT OMNIBAR WITH LIVE MARKDOWN PREVIEW ================= */}
         <footer className="p-3 sm:p-5 bg-gradient-to-t from-[#000000] via-[#000000] to-transparent z-20 flex-shrink-0">
           <div className="max-w-4xl mx-auto space-y-2 relative">
             
@@ -1232,25 +1284,112 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
               </div>
             )}
 
-            {/* Omnibar Box */}
+            {/* Omnibar Box with Live Markdown Preview & Formatting Toolbar */}
             <div className="relative rounded-2xl bg-[#09090b] border border-zinc-800 focus-within:border-zinc-600 shadow-2xl transition duration-300">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder={"Ask " + selectedModel.name + " anything, or type '/' for slash commands..."}
-                rows={1}
-                className="w-full px-4 sm:px-5 py-3.5 sm:py-4 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-44 overflow-y-auto leading-relaxed"
-                style={{ minHeight: '52px' }}
-              />
+              
+              {/* Omnibar Top Sub-Header: Write vs Live Preview Tabs + Quick Syntax Helper */}
+              <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-zinc-800/80 bg-black/40 text-xs select-none">
+                {/* Formatting Buttons */}
+                <div className="flex items-center gap-1 text-zinc-400">
+                  <button
+                    type="button"
+                    onClick={() => insertMarkdownSyntax('**', '**')}
+                    className="p-1 rounded hover:bg-zinc-800 hover:text-white transition"
+                    title="Bold (**text**)"
+                  >
+                    <Bold className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertMarkdownSyntax('*', '*')}
+                    className="p-1 rounded hover:bg-zinc-800 hover:text-white transition"
+                    title="Italic (*text*)"
+                  >
+                    <Italic className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertMarkdownSyntax('```\n', '\n```')}
+                    className="p-1 rounded hover:bg-zinc-800 hover:text-white transition"
+                    title="Code Block"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertMarkdownSyntax('- ')}
+                    className="p-1 rounded hover:bg-zinc-800 hover:text-white transition"
+                    title="Bullet list"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertMarkdownSyntax('$$\n', '\n$$')}
+                    className="p-1 rounded hover:bg-zinc-800 hover:text-white transition"
+                    title="Math equation ($$...$$)"
+                  >
+                    <Binary className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
-              {/* Bottom Toolbar */}
+                {/* Write vs Preview Mode Switcher */}
+                <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => setInputTab('write')}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-md transition ${
+                      inputTab === 'write'
+                        ? 'bg-zinc-800 text-white font-medium'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Write</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputTab('preview')}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-md transition ${
+                      inputTab === 'preview'
+                        ? 'bg-zinc-800 text-white font-medium'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Preview</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Omnibar Input Body */}
+              {inputTab === 'write' ? (
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder={"Ask " + selectedModel.name + " anything, or type '/' for slash commands..."}
+                  rows={1}
+                  className="w-full px-4 sm:px-5 py-3.5 sm:py-4 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-44 overflow-y-auto leading-relaxed"
+                  style={{ minHeight: '52px' }}
+                />
+              ) : (
+                <div className="w-full px-4 sm:px-5 py-3.5 sm:py-4 min-h-[52px] max-h-44 overflow-y-auto bg-black/30">
+                  {input.trim() ? (
+                    <MarkdownRenderer content={input} />
+                  ) : (
+                    <span className="text-xs font-mono text-zinc-600">Nothing to preview yet. Type markdown in Write tab.</span>
+                  )}
+                </div>
+              )}
+
+              {/* Bottom Toolbar: Attachments, Voice, Reasoning, Format Selector & Send */}
               <div className="flex items-center justify-between px-3 sm:px-4 pb-2.5 sm:pb-3 pt-1 border-t border-zinc-800/60">
                 
                 {/* Left Controls */}
@@ -1299,6 +1438,41 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                     <Sparkles className="w-3 h-3 text-zinc-300" />
                     <span className="hidden sm:inline">Reasoning</span>
                   </button>
+
+                  {/* Response Format Selector Pill */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsFormatDropdownOpen(!isFormatDropdownOpen)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-300 hover:text-white transition"
+                    >
+                      <span className="hidden xs:inline text-zinc-500">Format:</span>
+                      <span className="font-semibold">{RESPONSE_FORMATS.find((f) => f.id === selectedFormat)?.label}</span>
+                      <ChevronDown className="w-3 h-3 text-zinc-500" />
+                    </button>
+
+                    {isFormatDropdownOpen && (
+                      <div className="absolute left-0 bottom-full mb-1.5 w-48 rounded-xl bg-[#0e0e11] border border-zinc-700 shadow-2xl p-1 z-50 space-y-0.5 text-xs font-mono">
+                        {RESPONSE_FORMATS.map((fmt) => (
+                          <button
+                            key={fmt.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedFormat(fmt.id);
+                              setIsFormatDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg transition ${
+                              selectedFormat === fmt.id
+                                ? 'bg-zinc-800 text-white font-medium'
+                                : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+                            }`}
+                          >
+                            {fmt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Right Controls */}
@@ -1337,6 +1511,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
         </footer>
 
       </div>
+
+      {/* ================= INTERACTIVE ARTIFACT CANVAS PANEL ================= */}
+      <CanvasPanel
+        isOpen={isCanvasOpen}
+        onClose={() => setIsCanvasOpen(false)}
+        title={canvasTitle}
+        language={canvasLanguage}
+        content={canvasContent}
+        onChangeContent={setCanvasContent}
+        onInsertIntoChat={(text) => {
+          setInput((prev) => (prev ? prev + '\n\n' + text : text));
+          setIsCanvasOpen(false);
+        }}
+      />
 
       {/* ================= MODALS ================= */}
       <SettingsModal
