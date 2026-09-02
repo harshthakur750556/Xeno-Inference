@@ -25,6 +25,8 @@ import {
   Wrench,
   Code2,
   Layers,
+  Trophy,
+  Newspaper,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -33,6 +35,9 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { CanvasPanel } from './CanvasPanel';
 import { SettingsModal } from './SettingsModal';
 import { VoiceVisualizer } from './VoiceVisualizer';
+import { LeaderboardModal } from './LeaderboardModal';
+import { AiNewsModal } from './AiNewsModal';
+import { WebBrowserPanel } from './WebBrowserPanel';
 import type {
   Message,
   InferenceConfig,
@@ -119,11 +124,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  // Interactive Canvas State
+  // Interactive Panels State
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [canvasTitle, setCanvasTitle] = useState('Artifact');
   const [canvasLanguage, setCanvasLanguage] = useState('rust');
   const [canvasContent, setCanvasContent] = useState('');
+
+  // Split Web Browser Panel State
+  const [isWebBrowserOpen, setIsWebBrowserOpen] = useState(false);
+  const [webBrowserInitialQuery, setWebBrowserInitialQuery] = useState('https://duckduckgo.com');
+
+  // Leaderboard & News Modals
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isNewsOpen, setIsNewsOpen] = useState(false);
 
   // Tools Menu Popover State
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
@@ -325,6 +338,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     setCanvasLanguage(language);
     setCanvasContent(code);
     setIsCanvasOpen(true);
+  };
+
+  // Open Split Web Browser with Query
+  const handleOpenWebBrowser = (query?: string) => {
+    if (query) setWebBrowserInitialQuery(query);
+    setIsWebBrowserOpen(true);
+    setIsToolsMenuOpen(false);
   };
 
   // Send Prompt
@@ -691,6 +711,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             <span>New Chat</span>
           </button>
 
+          {/* Navigation Links: Leaderboard & AI News */}
+          <div className="space-y-1 flex-shrink-0">
+            <button
+              onClick={() => setIsLeaderboardOpen(true)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
+            >
+              <Trophy className="w-3.5 h-3.5 text-white" />
+              <span>Leaderboard & Benchmarks</span>
+            </button>
+
+            <button
+              onClick={() => setIsNewsOpen(true)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
+            >
+              <Newspaper className="w-3.5 h-3.5 text-white" />
+              <span>AI Releases & News</span>
+            </button>
+          </div>
+
           {/* Search Conversations */}
           <div className="relative flex-shrink-0">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -872,8 +911,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
           </div>
 
-          {/* Right: Quick New Chat Shortcut */}
+          {/* Right: Split Browser Shortcut & New Chat */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button
+              onClick={() => handleOpenWebBrowser()}
+              className={`p-2 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                isWebBrowserOpen
+                  ? 'bg-white text-black font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              }`}
+              title="Split Web Browser Search"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Browser</span>
+            </button>
+
             <button
               onClick={handleCreateNewSession}
               className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
@@ -888,7 +940,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         {/* ================= MESSAGE STREAM ================= */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 max-w-4xl mx-auto w-full">
           
-          {/* Welcome Screen (Clean Iconic Brand, No Pseudo Starter Cards) */}
+          {/* Welcome Screen (Clean Iconic Brand) */}
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center text-center max-w-lg mx-auto space-y-6 my-auto select-none py-4 sm:py-8">
               <div className="w-28 sm:w-36 md:w-44 aspect-[1104/1380] mx-auto flex-shrink-0 relative">
@@ -938,14 +990,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   (isUser ? 'justify-end' : 'justify-start')
                 }
               >
-                {/* Assistant Message (Seamless Flow, Unboxed) */}
+                {/* Assistant Message (Luxury Encapsulated Bubble Container) */}
                 {!isUser ? (
                   <div className="flex gap-3 sm:gap-4 max-w-full w-full">
-                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center p-1 mt-1">
-                      <XenoLogo size={16} />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1.5 mt-1">
+                      <XenoLogo size={18} />
                     </div>
 
-                    <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex-1 min-w-0 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 p-4 sm:p-5 shadow-sm space-y-3">
                       {msg.reasoning && (
                         <ThinkingBlock
                           reasoning={msg.reasoning}
@@ -959,36 +1011,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                       </div>
 
                       {/* Micro Action Bar */}
-                      <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-zinc-500">
-                        {msg.metrics && (
-                          <span className="text-zinc-500 flex items-center gap-1">
-                            {msg.metrics.tokensPerSec} tok/s • {msg.metrics.tokens} tokens
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] font-mono text-zinc-500">
+                        <div>
+                          {msg.metrics ? (
+                            <span className="text-zinc-500">
+                              {msg.metrics.tokensPerSec} tok/s • {msg.metrics.tokens} tokens
+                            </span>
+                          ) : (
+                            <span className="text-zinc-600">{config.provider.toUpperCase()}</span>
+                          )}
+                        </div>
 
-                        <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition">
+                        <div className="flex items-center gap-2 opacity-75 group-hover:opacity-100 transition">
                           <button
                             onClick={() => handleCopyMessage(msg.id, msg.content)}
-                            className="hover:text-white transition cursor-pointer p-0.5"
+                            className="hover:text-white transition cursor-pointer p-1 rounded-md hover:bg-zinc-800"
                             title="Copy text"
                           >
                             {copiedMessageId === msg.id ? (
-                              <Check className="w-3 h-3 text-white" />
+                              <Check className="w-3.5 h-3.5 text-white" />
                             ) : (
-                              <Copy className="w-3 h-3" />
+                              <Copy className="w-3.5 h-3.5" />
                             )}
                           </button>
 
                           <button
                             onClick={() => handleToggleSpeak(msg.id, msg.content)}
                             className={
-                              'hover:text-white transition cursor-pointer p-0.5 ' +
+                              'hover:text-white transition cursor-pointer p-1 rounded-md hover:bg-zinc-800 ' +
                               (speakingMessageId === msg.id ? 'text-white animate-pulse' : '')
                             }
                             title="Read aloud"
                           >
                             {speakingMessageId === msg.id ? (
-                              <VolumeX className="w-3 h-3" />
+                              <VolumeX className="w-3.5 h-3.5" />
                             ) : (
                               <Volume2 className="w-3.5 h-3.5" />
                             )}
@@ -996,10 +1052,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
                           <button
                             onClick={handleRegenerate}
-                            className="hover:text-white transition cursor-pointer p-0.5"
+                            className="hover:text-white transition cursor-pointer p-1 rounded-md hover:bg-zinc-800"
                             title="Regenerate"
                           >
-                            <RefreshCw className="w-3 h-3" />
+                            <RefreshCw className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1074,11 +1130,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           {/* ACTIVE STREAMING */}
           {isStreaming && (
             <div className="flex gap-3 sm:gap-4 max-w-full w-full">
-              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center p-1 mt-1">
-                <XenoLogo size={16} />
+              <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1.5 mt-1">
+                <XenoLogo size={18} />
               </div>
 
-              <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex-1 min-w-0 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 p-4 sm:p-5 shadow-sm space-y-3">
                 {(streamingReasoning || isThinkingActive) && (
                   <ThinkingBlock
                     reasoning={streamingReasoning}
@@ -1120,23 +1176,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   <button onClick={() => setIsToolsMenuOpen(false)} className="hover:text-white">&times;</button>
                 </div>
 
-                {/* Web Search Toggle */}
+                {/* Open Split Web Browser */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setConfig((prev) => ({ ...prev, webSearch: !prev.webSearch }));
-                  }}
-                  className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition cursor-pointer ${
-                    config.webSearch
-                      ? 'bg-zinc-800 text-white font-medium border border-zinc-600'
-                      : 'hover:bg-zinc-900 text-zinc-400 hover:text-white'
-                  }`}
+                  onClick={() => handleOpenWebBrowser()}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Globe className="w-3.5 h-3.5" />
-                    <span>Live Web Search</span>
+                    <span>Live Split Web Browser</span>
                   </div>
-                  <span className="text-[10px] font-mono">{config.webSearch ? 'ON' : 'OFF'}</span>
+                  <span className="text-[10px] font-mono text-zinc-500">Launch ↗</span>
                 </button>
 
                 {/* Deep Reasoning Toggle */}
@@ -1174,7 +1224,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   <span className="text-[10px] font-mono text-zinc-500">Open ↗</span>
                 </button>
 
-                {/* Quick Code Sandbox Insert */}
+                {/* Insert Code Block */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1294,19 +1344,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     <span>Tools</span>
                   </button>
 
-                  {/* Quick Search Toggle */}
+                  {/* Quick Browser Launch Button */}
                   <button
                     type="button"
-                    onClick={() => setConfig((prev) => ({ ...prev, webSearch: !prev.webSearch }))}
+                    onClick={() => handleOpenWebBrowser()}
                     className={`hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition cursor-pointer ${
-                      config.webSearch
+                      isWebBrowserOpen
                         ? 'bg-white text-black font-semibold'
                         : 'text-zinc-400 hover:text-white hover:bg-white/10'
                     }`}
-                    title="Toggle web search"
+                    title="Open live web browser"
                   >
                     <Globe className="w-3 h-3" />
-                    <span>Search</span>
+                    <span>Search Web</span>
                   </button>
 
                   {/* Quick Deep Reasoning Toggle */}
@@ -1379,6 +1429,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
       </div>
 
+      {/* ================= SPLIT WEB BROWSER PANEL ================= */}
+      <WebBrowserPanel
+        isOpen={isWebBrowserOpen}
+        onClose={() => setIsWebBrowserOpen(false)}
+        initialQuery={webBrowserInitialQuery}
+        onInsertIntoPrompt={(snippet) => {
+          setInput((prev) => (prev ? prev + '\n' + snippet : snippet));
+          textareaRef.current?.focus();
+        }}
+      />
+
       {/* ================= ARTIFACT CANVAS PANEL ================= */}
       <CanvasPanel
         isOpen={isCanvasOpen}
@@ -1390,6 +1451,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         onInsertIntoChat={(text) => {
           setInput((prev) => (prev ? prev + '\n\n' + text : text));
           setIsCanvasOpen(false);
+        }}
+      />
+
+      {/* ================= LEADERBOARD & BENCHMARKS MODAL ================= */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        onSelectModel={(modelId) => {
+          setConfig((prev) => ({ ...prev, model: modelId }));
+        }}
+      />
+
+      {/* ================= AI NEWS & MODEL RELEASES MODAL ================= */}
+      <AiNewsModal
+        isOpen={isNewsOpen}
+        onClose={() => setIsNewsOpen(false)}
+        onSelectModel={(modelId) => {
+          setConfig((prev) => ({ ...prev, model: modelId }));
         }}
       />
 
