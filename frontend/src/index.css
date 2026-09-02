@@ -1,0 +1,240 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-roman: 'Cinzel', 'Cinzel Decorative', 'Times New Roman', serif;
+    --font-calligraphy: 'Great Vibes', 'Alex Brush', 'Dancing Script', cursive;
+    --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  }
+
+  body {
+    background-color: #030305;
+    color: #f3f4f6;
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+.font-roman {
+  font-family: 'Cinzel', 'Cinzel Decorative', 'Trajan Pro', Georgia, serif;
+}
+
+.font-calligraphy {
+  font-family: 'Great Vibes', 'Alex Brush', 'Dancing Script', cursive;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(10, 10, 15, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* Glassmorphism and Blur gradients */
+.glass-panel {
+  background: rgba(10, 10, 18, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  background: rgba(15, 12, 28, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  box-shadow: 0 0 30px -5px rgba(168, 85, 247, 0.15);
+}
+
+.blurry-gradient-backdrop {
+  position: relative;
+  overflow: hidden;
+}
+
+.blurry-gradient-backdrop::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.2) 25%, rgba(6, 182, 212, 0.15) 50%, transparent 70%);
+  filter: blur(45px);
+  pointer-events: none;
+  z-index: 0;
+  animation: pulseGradient 6s ease-in-out infinite alternate;
+}
+
+@keyframes pulseGradient {
+  0% {
+    transform: scale(0.95) rotate(0deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.1) rotate(15deg);
+    opacity: 1;
+  }
+}
+
+/* Butterfly Wing Flap Animation */
+@keyframes flutterLeft {
+  0%, 100% {
+    transform: rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: rotateY(55deg) scale(0.92) skewY(-2deg);
+  }
+}
+
+@keyframes flutterRight {
+  0%, 100% {
+    transform: rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: rotateY(-55deg) scale(0.92) skewY(2deg);
+  }
+}
+
+@keyframes butterflyFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotate(-1.5deg);
+  }
+  75% {
+    transform: translateY(6px) rotate(1.5deg);
+  }
+}
+
+@keyframes textGlowShimmer {
+  0% {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2), 0 0 20px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.6), 0 0 35px rgba(168, 85, 247, 0.7), 0 0 50px rgba(56, 189, 248, 0.5);
+  }
+  100% {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2), 0 0 20px rgba(168, 85, 247, 0.3);
+  }
+}
+
+@keyframes calligraphyStroke {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-flutter-left {
+  transform-origin: right center;
+  animation: flutterLeft 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.animate-flutter-right {
+  transform-origin: left center;
+  animation: flutterRight 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.animate-butterfly-float {
+  animation: butterflyFloat 4s ease-in-out infinite;
+}
+
+.animate-text-shimmer {
+  animation: textGlowShimmer 3s ease-in-out infinite;
+}
+
+.animate-calligraphy {
+  animation: calligraphyStroke 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Aurora Wave Background Animations */
+@keyframes auroraWave {
+  0% {
+    background-position: 0% 50%;
+    filter: hue-rotate(0deg) blur(50px);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: hue-rotate(90deg) blur(65px);
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: hue-rotate(0deg) blur(50px);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes auroraBorealis {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 0.6;
+  }
+  33% {
+    transform: translateY(-12px) scale(1.08) rotate(3deg);
+    opacity: 0.85;
+  }
+  66% {
+    transform: translateY(8px) scale(0.95) rotate(-3deg);
+    opacity: 0.7;
+  }
+}
+
+.aurora-bg-glow {
+  background: linear-gradient(135deg, rgba(0, 245, 212, 0.2), rgba(123, 44, 191, 0.3), rgba(255, 0, 128, 0.25), rgba(0, 187, 249, 0.2));
+  background-size: 300% 300%;
+  animation: auroraWave 10s ease infinite;
+}
+
+.aurora-ribbon {
+  animation: auroraBorealis 8s ease-in-out infinite;
+}
+
+/* Code block styles */
+pre code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+

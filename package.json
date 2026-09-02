@@ -1,0 +1,15 @@
+{
+  "name": "xeno-inference",
+  "version": "1.0.0",
+  "private": true,
+  "description": "High-Throughput Neural AI Inference Application (TypeScript + Rust)",
+  "scripts": {
+    "dev": "node start-dev.js",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "node backend/server.js",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && cargo build --release",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview"
+  }
+}
