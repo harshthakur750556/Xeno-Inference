@@ -6,45 +6,28 @@ interface SplashIntroProps {
   onComplete: () => void;
 }
 
-interface CommandItem {
-  text: string;
-  delayMs: number;
-}
+// Helper to generate dynamic ASCII progress bar
+const renderAsciiBar = (percent: number, length = 16): string => {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const filledCount = Math.round((clamped / 100) * length);
+  const emptyCount = length - filledCount;
+  return `[${'█'.repeat(filledCount)}${'░'.repeat(emptyCount)}] ${clamped.toFixed(0)}%`;
+};
 
-const COMMAND_SEQUENCE: CommandItem[] = [
-  {
-    text: '[KERNEL] Bootstrapping Xeno Neural Architecture v4.2...',
-    delayMs: 200,
-  },
-  {
-    text: '[VRAM] KV-Cache Allocation: [████████░░░░░░░░] 50% (16.0 GB)',
-    delayMs: 1400,
-  },
-  {
-    text: '[VRAM] PagedAttention Buffer: [████████████████] 100% (32.0 GB Ready)',
-    delayMs: 2700,
-  },
-  {
-    text: '[QUANT] Calibrating BF16 / FP8: [████████████░░░░] 75% (SIMD Active)',
-    delayMs: 4200,
-  },
-  {
-    text: '[SPARSE] Attention Density:  ▂▃▅▆▇█▇▆▅▃  (128k context verified)',
-    delayMs: 5800,
-  },
-  {
-    text: '[BRIDGE] IPC Channel with Rust Daemon: [████████████████] 100% (<0.4ms)',
-    delayMs: 7300,
-  },
-  {
-    text: '[ONLINE] Neural Inference Pipeline Active. Ready for input.',
-    delayMs: 8700,
-  },
+// Dynamic sparkline frame generator
+const SPARKLINE_FRAMES = [
+  ' ▂▃▅▆▇█▇▆▅▃ ',
+  '▂▃▅▆▇█▇▆▅▃ ▂',
+  '▃▅▆▇█▇▆▅▃ ▂▃',
+  '▅▆▇█▇▆▅▃ ▂▃▅',
+  '▆▇█▇▆▅▃ ▂▃▅▆',
+  '▇█▇▆▅▃ ▂▃▅▆▇',
+  '█▇▆▅▃ ▂▃▅▆▇█',
 ];
 
 export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
-  const [activeStep, setActiveStep] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
@@ -53,16 +36,9 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
+      setElapsedMs(elapsed);
       const currentProgress = Math.min(Math.floor((elapsed / duration) * 100), 100);
       setProgress(currentProgress);
-
-      let currentStep = 0;
-      for (let i = 0; i < COMMAND_SEQUENCE.length; i++) {
-        if (elapsed >= COMMAND_SEQUENCE[i].delayMs) {
-          currentStep = i;
-        }
-      }
-      setActiveStep(currentStep);
 
       if (elapsed >= duration - 350) {
         setIsFadingOut(true);
@@ -74,23 +50,96 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
           onComplete();
         }, 150);
       }
-    }, 25);
+    }, 20);
 
     return () => clearInterval(interval);
   }, [onComplete]);
 
-  // Derive exactly 3 visible lines (current, previous, older)
-  const visibleIndices: number[] = [];
-  if (activeStep >= 2) {
-    visibleIndices.push(activeStep - 2);
-    visibleIndices.push(activeStep - 1);
-    visibleIndices.push(activeStep);
-  } else if (activeStep === 1) {
-    visibleIndices.push(0);
-    visibleIndices.push(1);
-  } else {
-    visibleIndices.push(0);
-  }
+  // Compute live real-time dynamic command lines based on current elapsed time
+  const getDynamicCommands = (elapsed: number) => {
+    const list: { id: number; text: string; isReady: boolean }[] = [];
+
+    // Step 0: Kernel init (0ms -> always present)
+    if (elapsed >= 100) {
+      list.push({
+        id: 0,
+        text: '[KERNEL] Bootstrapping Xeno Neural Architecture v4.2...',
+        isReady: elapsed > 1200,
+      });
+    }
+
+    // Step 1: KV-Cache Dynamic Allocation (1200ms -> 2800ms)
+    if (elapsed >= 1200) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 1200) / 1400) * 100));
+      const allocatedGb = ((stepPct / 100) * 16.0).toFixed(1);
+      const bar = renderAsciiBar(stepPct, 12);
+      list.push({
+        id: 1,
+        text: `[VRAM] KV-Cache Allocation: ${bar} (${allocatedGb}/16.0 GB)`,
+        isReady: stepPct >= 100,
+      });
+    }
+
+    // Step 2: PagedAttention Buffer (2700ms -> 4300ms)
+    if (elapsed >= 2700) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 2700) / 1400) * 100));
+      const allocatedGb = (16.0 + (stepPct / 100) * 16.0).toFixed(1);
+      const bar = renderAsciiBar(stepPct, 12);
+      list.push({
+        id: 2,
+        text: `[VRAM] PagedAttention Buffer: ${bar} (${allocatedGb}/32.0 GB Total)`,
+        isReady: stepPct >= 100,
+      });
+    }
+
+    // Step 3: Quantization Calibration (4200ms -> 5800ms)
+    if (elapsed >= 4200) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 4200) / 1400) * 100));
+      const bar = renderAsciiBar(stepPct, 12);
+      list.push({
+        id: 3,
+        text: `[QUANT] Calibrating BF16 / FP8 Tensor Cores: ${bar} (SIMD Active)`,
+        isReady: stepPct >= 100,
+      });
+    }
+
+    // Step 4: Sparse Attention Density Sparkline (5700ms -> 7300ms)
+    if (elapsed >= 5700) {
+      const frameIdx = Math.floor(elapsed / 180) % SPARKLINE_FRAMES.length;
+      const sparkline = SPARKLINE_FRAMES[frameIdx];
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 5700) / 1400) * 100));
+      list.push({
+        id: 4,
+        text: `[SPARSE] Attention Density: ${sparkline} (${stepPct.toFixed(0)}% mapped / 128k context)`,
+        isReady: stepPct >= 100,
+      });
+    }
+
+    // Step 5: Rust Daemon IPC Zero-Copy Channel (7200ms -> 8600ms)
+    if (elapsed >= 7200) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 7200) / 1200) * 100));
+      const bar = renderAsciiBar(stepPct, 12);
+      list.push({
+        id: 5,
+        text: `[BRIDGE] Zero-Copy IPC with Rust Daemon: ${bar} (<0.4ms latency)`,
+        isReady: stepPct >= 100,
+      });
+    }
+
+    // Step 6: Final Ready (8600ms+)
+    if (elapsed >= 8600) {
+      list.push({
+        id: 6,
+        text: '[ONLINE] Neural Inference Pipeline Active. Ready for input.',
+        isReady: true,
+      });
+    }
+
+    return list;
+  };
+
+  const dynamicCommands = getDynamicCommands(elapsedMs);
+  const visibleCommands = dynamicCommands.slice(-3); // Always get the latest 3 lines
 
   return (
     <div
@@ -115,11 +164,11 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         </div>
       </header>
 
-      {/* MAIN SPLIT PAGE DESIGN - AUTO RESPONSIVE GRID (NEVER OVERLAPPING) */}
+      {/* MAIN SPLIT PAGE DESIGN - AUTO RESPONSIVE GRID */}
       <main className="relative z-10 flex-1 flex items-center justify-center w-full max-w-7xl mx-auto px-5 sm:px-10 lg:px-14 py-4 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 items-center justify-items-center lg:justify-items-stretch w-full gap-8 sm:gap-12 lg:gap-16">
           
-          {/* LEFT COLUMN: App Name in Two Lines + Unboxed 3-Line Rolling Commands */}
+          {/* LEFT COLUMN: App Name in Two Lines + Unboxed Real-Time Dynamic Commands */}
           <div className="flex flex-col justify-center items-center lg:items-start text-center lg:text-left space-y-6 sm:space-y-8 lg:space-y-10 w-full max-w-xl">
             
             {/* APPLICATION TITLE - TWO LINES, FLUIDLY RESPONSIVE */}
@@ -139,17 +188,17 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
               </p>
             </div>
 
-            {/* UNBOXED 3-LINE ROLLING COMMAND STREAM WITH INLINE PROGRESS/GRAPHS */}
+            {/* UNBOXED 3-LINE ROLLING COMMAND STREAM WITH LIVE DYNAMIC ASCII PROGRESS */}
             <div className="w-full relative pt-1 text-left">
               {/* Soft subtle blurry gradient backdrop */}
               <div className="absolute -inset-4 bg-radial from-white/[0.03] to-transparent blur-2xl pointer-events-none" />
 
-              {/* Exactly 3 Lines Stream with Disappearing Animation */}
+              {/* Exactly 3 Lines Stream with Disappearing Animation & Live Real-Time Updating ASCII Bars */}
               <div className="relative space-y-2 sm:space-y-3 font-mono text-[11px] sm:text-xs md:text-[13px] min-h-[90px] sm:min-h-[105px] flex flex-col justify-end overflow-hidden">
-                {visibleIndices.map((idx, pos) => {
-                  const isNewest = pos === visibleIndices.length - 1;
-                  const isOldest = pos === 0 && visibleIndices.length === 3;
-                  const isMiddle = pos === 1 && visibleIndices.length === 3;
+                {visibleCommands.map((cmd, pos) => {
+                  const isNewest = pos === visibleCommands.length - 1;
+                  const isOldest = pos === 0 && visibleCommands.length === 3;
+                  const isMiddle = pos === 1 && visibleCommands.length === 3;
 
                   let opacityClass = 'opacity-100 text-white font-medium';
                   if (isOldest) opacityClass = 'opacity-25 text-zinc-500 scale-[0.98]';
@@ -157,11 +206,11 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
                   return (
                     <div
-                      key={idx}
-                      className={`flex items-center gap-2 transition-all duration-500 transform ${opacityClass}`}
+                      key={cmd.id}
+                      className={`flex items-center gap-2 transition-all duration-300 transform ${opacityClass}`}
                     >
                       <span className="text-zinc-500 select-none text-[10px] sm:text-xs flex-shrink-0">&gt;</span>
-                      <span className="truncate break-all sm:break-normal">{COMMAND_SEQUENCE[idx].text}</span>
+                      <span className="truncate break-all sm:break-normal font-mono">{cmd.text}</span>
                       {isNewest && (
                         <span className="inline-block w-1.5 h-3 sm:h-3.5 bg-white animate-pulse select-none ml-1 flex-shrink-0" />
                       )}
@@ -170,7 +219,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
                 })}
               </div>
 
-              {/* MINIMALIST PROGRESS HAIRLINE BAR */}
+              {/* MINIMALIST PROGRESS HAIRLINE BAR (LIVE ANIMATED) */}
               <div className="mt-4 sm:mt-6 space-y-1.5 sm:space-y-2">
                 <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-mono">
                   <span className="text-zinc-500 tracking-wider">BOOTSTRAP PROGRESS</span>
@@ -179,10 +228,10 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
                   </span>
                 </div>
 
-                {/* Responsive hairline track */}
+                {/* Real-time responsive hairline track */}
                 <div className="h-[2px] w-full bg-zinc-900 overflow-hidden">
                   <div
-                    className="h-full bg-white transition-all duration-100 ease-out shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                    className="h-full bg-white transition-all duration-75 ease-out shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                     style={{ width: `${progress}%` }}
                   />
                 </div>

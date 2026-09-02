@@ -3,10 +3,22 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   reasoning?: string;
+  thinkingDurationMs?: number;
   isThinking?: boolean;
   metrics?: InferenceMetrics;
   timestamp: string;
   attachments?: FileAttachment[];
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  model: string;
+  messages: Message[];
+  systemPrompt?: string;
+  isPinned?: boolean;
 }
 
 export interface FileAttachment {
@@ -49,6 +61,7 @@ export interface InferenceConfig {
   rustBackendUrl: string;
   apiKey?: string;
   model: string;
+  webSearch?: boolean;
 }
 
 export interface TelemetryData {
@@ -72,4 +85,11 @@ export interface BenchmarkResult {
   tokensPerSec: number;
   ttftMs: number;
   memoryAllocatedMb: number;
+}
+
+export interface SlashCommand {
+  command: string;
+  label: string;
+  description: string;
+  promptPrefix: string;
 }
