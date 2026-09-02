@@ -14,17 +14,6 @@ const renderAsciiBar = (percent: number, length = 12): string => {
   return `[${'█'.repeat(filledCount)}${'░'.repeat(emptyCount)}] ${clamped.toFixed(0)}%`;
 };
 
-// Dynamic sparkline frame generator
-const SPARKLINE_FRAMES = [
-  ' ▂▃▅▆▇█▇▆▅▃ ',
-  '▂▃▅▆▇█▇▆▅▃ ▂',
-  '▃▅▆▇█▇▆▅▃ ▂▃',
-  '▅▆▇█▇▆▅▃ ▂▃▅',
-  '▆▇█▇▆▅▃ ▂▃▅▆',
-  '▇█▇▆▅▃ ▂▃▅▆▇',
-  '█▇▆▅▃ ▂▃▅▆▇█',
-];
-
 export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -103,14 +92,13 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 4: Sparse Attention Density Sparkline (9500ms -> 12200ms)
+    // Step 4: Sparse Attention Density (9500ms -> 12200ms)
     if (elapsed >= 9500) {
-      const frameIdx = Math.floor(elapsed / 160) % SPARKLINE_FRAMES.length;
-      const sparkline = SPARKLINE_FRAMES[frameIdx];
       const stepPct = Math.min(100, Math.max(0, ((elapsed - 9500) / 2700) * 100));
+      const bar = renderAsciiBar(stepPct, 10);
       list.push({
         id: 4,
-        text: `[SPARSE] Attention Density: ${sparkline} (${stepPct.toFixed(0)}% / 128k)`,
+        text: `[SPARSE] Attention Density: ${bar} (128k context)`,
         isReady: stepPct >= 100,
       });
     }
@@ -121,7 +109,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       const bar = renderAsciiBar(stepPct, 10);
       list.push({
         id: 5,
-        text: `[BRIDGE] Zero-Copy IPC with Engine: ${bar} (<0.4ms)`,
+        text: `[BRIDGE] Zero-Copy IPC Channel: ${bar} (<0.4ms)`,
         isReady: stepPct >= 100,
       });
     }

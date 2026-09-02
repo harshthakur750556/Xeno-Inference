@@ -27,6 +27,9 @@ import {
   Layers,
   Trophy,
   Newspaper,
+  LogOut,
+  User,
+  Lock,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -38,6 +41,8 @@ import { VoiceVisualizer } from './VoiceVisualizer';
 import { LeaderboardModal } from './LeaderboardModal';
 import { AiNewsModal } from './AiNewsModal';
 import { WebBrowserPanel } from './WebBrowserPanel';
+import { AuthModal } from './AuthModal';
+import type { UserProfile } from './AuthModal';
 import type {
   Message,
   InferenceConfig,
@@ -73,8 +78,23 @@ const SLASH_COMMANDS: SlashCommand[] = [
 ];
 
 const CONFIG_STORAGE_KEY = 'xeno_inference_config_v2';
+const USER_STORAGE_KEY = 'xeno_user_profile_v2';
+const LOGGED_OUT_STORAGE_KEY = 'xeno_user_logged_out';
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
+  // Google Authentication State (Strictly blocks auto-login if user logged out)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const isLoggedOut = localStorage.getItem(LOGGED_OUT_STORAGE_KEY) === 'true';
+      if (isLoggedOut) return null;
+      const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+      if (savedUser) return JSON.parse(savedUser);
+    } catch {}
+    return null;
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   const [config, setConfig] = useState<InferenceConfig>(() => {
     try {
       const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
@@ -155,12 +175,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     label: 'Checking connection...',
   });
 
-  // Modals & Navigation
+  // Modals & Navigation (COLLAPSED ON DEFAULT ON ALL SCREENS)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Collapsed on default!
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -196,12 +216,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
-        setIsSettingsOpen(true);
+        handleOpenSettings();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [currentUser]);
+
+  // Handle Google Login & Logout
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    localStorage.removeItem(LOGGED_OUT_STORAGE_KEY);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.setItem(LOGGED_OUT_STORAGE_KEY, 'true'); // Block auto login
+    setIsSettingsOpen(false);
+  };
+
+  const handleOpenSettings = () => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsSettingsOpen(true);
+  };
 
   // Check Active Provider Status
   useEffect(() => {
@@ -352,6 +394,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     const promptText = (textToSend || input).trim();
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
+
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
 
     if (!providerStatus.connected) {
       setIsSettingsOpen(true);
@@ -668,7 +715,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         />
       )}
 
-      {/* ================= MINIMALIST SIDEBAR ================= */}
+      {/* ================= MINIMALIST SIDEBAR (COLLAPSED ON DEFAULT) ================= */}
       <aside
         className={
           (isSidebarOpen
@@ -813,11 +860,49 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             })}
           </div>
 
-          {/* Bottom Area: Settings & Provider Configuration */}
-          <div className="mt-auto pt-2.5 border-t border-zinc-800/80 space-y-1">
+          {/* Bottom Area: User Google Account Card & Settings */}
+          <div className="mt-auto pt-2.5 border-t border-zinc-800/80 space-y-2 flex-shrink-0">
+            
+            {/* User Profile Card */}
+            {currentUser ? (
+              <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-white text-black font-bold flex items-center justify-center text-[10px] flex-shrink-0">
+                    {currentUser.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-white truncate text-[11px]">{currentUser.name}</div>
+                    <div className="text-[10px] text-zinc-500 truncate">{currentUser.email}</div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1 text-zinc-500 hover:text-red-400 transition cursor-pointer"
+                  title="Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-full flex items-center justify-between p-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <User className="w-3.5 h-3.5" />
+                  <span>Sign in with Google</span>
+                </div>
+                <Lock className="w-3 h-3 text-zinc-600" />
+              </button>
+            )}
+
+            {/* Settings & Keys Button */}
             <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-full flex items-center justify-between p-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:text-white transition cursor-pointer"
+              onClick={handleOpenSettings}
+              className="w-full flex items-center justify-between p-2 rounded-xl bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/80 text-xs text-zinc-300 hover:text-white transition cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <Sliders className="w-3.5 h-3.5 text-zinc-400" />
@@ -826,10 +911,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               <span className={`w-2 h-2 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
             </button>
 
-            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 px-2 py-0.5">
-              <span>{config.provider.toUpperCase()}</span>
-              <span>{providerStatus.connected ? 'ONLINE' : 'CONFIG NEEDED'}</span>
-            </div>
           </div>
 
         </div>
@@ -868,7 +949,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setIsSettingsOpen(true)}
+                  onClick={handleOpenSettings}
                   className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-amber-950/30 hover:bg-amber-950/50 border border-amber-500/30 text-amber-300 text-xs font-medium transition cursor-pointer"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
@@ -937,26 +1018,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
         </header>
 
-        {/* ================= MESSAGE STREAM ================= */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 max-w-4xl mx-auto w-full">
+        {/* ================= MESSAGE STREAM (COMPLETELY STATIC ON NEW CHAT, NO SCROLL) ================= */}
+        <main
+          className={`flex-1 px-4 sm:px-8 md:px-12 py-6 max-w-4xl mx-auto w-full ${
+            messages.length === 0
+              ? 'overflow-hidden flex flex-col justify-center items-center'
+              : 'overflow-y-auto space-y-6'
+          }`}
+        >
           
-          {/* Welcome Screen (Clean Iconic Brand) */}
+          {/* Welcome Screen (100% Static, Zero Scroll, Centered) */}
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center text-center max-w-lg mx-auto space-y-6 my-auto select-none py-4 sm:py-8">
-              <div className="w-28 sm:w-36 md:w-44 aspect-[1104/1380] mx-auto flex-shrink-0 relative">
+            <div className="flex flex-col items-center justify-center text-center max-w-lg mx-auto space-y-5 select-none my-auto">
+              <div className="w-24 sm:w-32 md:w-36 aspect-[1104/1380] mx-auto flex-shrink-0 relative">
                 <ButterflySvg className="w-full h-full object-contain filter drop-shadow-[0_0_25px_rgba(255,255,255,0.12)]" />
               </div>
 
-              <div className="space-y-1.5 px-2">
+              <div className="space-y-1 px-2">
                 <div className="flex items-baseline justify-center gap-2.5">
-                  <span className="font-roman text-4xl sm:text-5xl font-extrabold tracking-widest text-white">
+                  <span className="font-roman text-3xl sm:text-4xl font-extrabold tracking-widest text-white">
                     XENO
                   </span>
-                  <span className="font-calligraphy text-5xl sm:text-6xl text-zinc-300">
+                  <span className="font-calligraphy text-4xl sm:text-5xl text-zinc-300">
                     Inference
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+                <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
                   {providerStatus.connected
                     ? `High-throughput neural token stream connected to ${selectedModel.name} via ${config.provider.toUpperCase()}.`
                     : 'High-Throughput Neural AI Acceleration.'}
@@ -965,7 +1052,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 {!providerStatus.connected && (
                   <div className="pt-2">
                     <button
-                      onClick={() => setIsSettingsOpen(true)}
+                      onClick={handleOpenSettings}
                       className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono cursor-pointer hover:bg-amber-950/50 transition"
                     >
                       <Key className="w-3.5 h-3.5" />
@@ -1299,7 +1386,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   }
                 }}
                 placeholder={
-                  providerStatus.connected
+                  !currentUser
+                    ? 'Sign in with Google to begin...'
+                    : providerStatus.connected
                     ? `Message ${selectedModel.name}...`
                     : `Configure provider & API key in Settings to begin...`
                 }
@@ -1417,10 +1506,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
 
             <div className="text-center text-[10px] font-mono text-zinc-600">
-              {providerStatus.connected ? (
-                <span>Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow}</span>
+              {currentUser ? (
+                providerStatus.connected ? (
+                  <span>Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow}</span>
+                ) : (
+                  <span className="text-amber-400/80">Provider not configured. Press Ctrl+, to configure</span>
+                )
               ) : (
-                <span className="text-amber-400/80">Provider not connected. Press Ctrl+, to open Settings</span>
+                <span className="text-zinc-400">Click "Sign in with Google" to enable full AI inference</span>
               )}
             </div>
 
@@ -1478,6 +1571,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         onClose={() => setIsSettingsOpen(false)}
         config={config}
         onChange={setConfig}
+        currentUser={currentUser}
+        onOpenAuth={() => {
+          setIsSettingsOpen(false);
+          setIsAuthModalOpen(true);
+        }}
+      />
+
+      {/* ================= GOOGLE AUTHENTICATION MODAL ================= */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
       />
 
     </div>
