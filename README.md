@@ -3,12 +3,12 @@
 # X E N O &nbsp; I N F E R E N C E
 
 ```
-  ██████╗  ██╗  ███████╗ ███╗   ██╗  ██████╗ 
-  ╚════██╗ ██║  ██╔════╝ ████╗  ██║ ██╔═══██╗
-   █████╔╝ ██║  █████╗   ██╔██╗ ██║ ██║   ██║
-  ██╔═══╝  ██║  ██╔══╝   ██║╚██╗██║ ██║   ██║
-  ███████╗ ██║  ███████╗ ██║ ╚████║ ╚██████╔╝
-  ╚══════╝ ╚═╝  ╚══════╝ ╚═╝  ╚═══╝  ╚═════╝ 
+  ██╗  ██╗ ███████╗ ███╗   ██╗  ██████╗ 
+  ╚██╗██╔╝ ██╔════╝ ████╗  ██║ ██╔═══██╗
+   ╚███╔╝  █████╗   ██╔██╗ ██║ ██║   ██║
+   ██╔██╗  ██╔══╝   ██║╚██╗██║ ██║   ██║
+  ██╔╝ ██╗ ███████╗ ██║ ╚████║ ╚██████╔╝
+  ╚═╝  ╚═╝ ╚══════╝ ╚═╝  ╚═══╝  ╚═════╝ 
         HIGH-THROUGHPUT NEURAL ACCELERATION ENGINE
 ```
 
@@ -41,7 +41,7 @@ The system couples a **TypeScript React** frontend with an asynchronous **Rust A
 +-------------------------------------------------------------------------------+
 |                             CLIENT WORKSPACE (TS)                             |
 |  +-------------------------------------------------------------------------+  |
-|  | [10s Split Welcome]  [Streaming Chat]  [Reasoning HUD]  [Telemetry HUD] |  |
+|  | [15s Split Welcome]  [Streaming Chat]  [Reasoning HUD]  [Telemetry HUD] |  |
 |  +-------------------------------------------------------------------------+  |
 |                                     |                                         |
 |                         HTTP / SSE EventStream                                |
@@ -58,7 +58,7 @@ The system couples a **TypeScript React** frontend with an asynchronous **Rust A
 
 ## ARCHITECTURAL CAPABILITIES
 
-### 1. 10-Second Split Startup Sequence
+### 1. 15-Second Split Startup Sequence
 
 - **Pure Black Void Aesthetic (`#000000`)**: Deep-contrast monochromatic visual architecture.
 - **Two-Line Monolithic Typography**:
@@ -73,7 +73,7 @@ The system couples a **TypeScript React** frontend with an asynchronous **Rust A
     - `> [SPARSE] Attention Density:  ▂▃▅▆▇█▇▆▅▃  (128k context verified)`
     - `> [BRIDGE] IPC Channel with Rust Daemon: [████████████████] 100% (<0.4ms)`
   - Older lines slide upward and fade into the background.
-- **Precision Hairline Progress Track**: 2px linear progression indicator calibrated to the 10.0s sequence.
+- **Precision Hairline Progress Track**: 2px linear progression indicator calibrated to the 15.0s sequence.
 - **Static Vector Artwork**: 22-path vector filigree rendered with `geometricPrecision` in high-contrast monochrome silver.
 
 ---

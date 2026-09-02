@@ -7,7 +7,7 @@ interface SplashIntroProps {
 }
 
 // Helper to generate dynamic ASCII progress bar
-const renderAsciiBar = (percent: number, length = 16): string => {
+const renderAsciiBar = (percent: number, length = 14): string => {
   const clamped = Math.max(0, Math.min(100, percent));
   const filledCount = Math.round((clamped / 100) * length);
   const emptyCount = length - filledCount;
@@ -32,7 +32,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
   useEffect(() => {
     const startTime = Date.now();
-    const duration = 10000; // 10 seconds total
+    const duration = 15000; // 15 seconds total
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -40,7 +40,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       const currentProgress = Math.min(Math.floor((elapsed / duration) * 100), 100);
       setProgress(currentProgress);
 
-      if (elapsed >= duration - 350) {
+      if (elapsed >= duration - 400) {
         setIsFadingOut(true);
       }
 
@@ -55,22 +55,22 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
     return () => clearInterval(interval);
   }, [onComplete]);
 
-  // Compute live real-time dynamic command lines based on current elapsed time
+  // Compute live real-time dynamic command lines based on current elapsed time (15-second timeline)
   const getDynamicCommands = (elapsed: number) => {
     const list: { id: number; text: string; isReady: boolean }[] = [];
 
-    // Step 0: Kernel init (0ms -> always present)
+    // Step 0: Kernel init (0ms -> 1800ms)
     if (elapsed >= 100) {
       list.push({
         id: 0,
         text: '[KERNEL] Bootstrapping Xeno Neural Architecture v4.2...',
-        isReady: elapsed > 1200,
+        isReady: elapsed > 1800,
       });
     }
 
-    // Step 1: KV-Cache Dynamic Allocation (1200ms -> 2800ms)
-    if (elapsed >= 1200) {
-      const stepPct = Math.min(100, Math.max(0, ((elapsed - 1200) / 1400) * 100));
+    // Step 1: KV-Cache Dynamic Allocation (1800ms -> 4300ms)
+    if (elapsed >= 1800) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 1800) / 2500) * 100));
       const allocatedGb = ((stepPct / 100) * 16.0).toFixed(1);
       const bar = renderAsciiBar(stepPct, 12);
       list.push({
@@ -80,9 +80,9 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 2: PagedAttention Buffer (2700ms -> 4300ms)
-    if (elapsed >= 2700) {
-      const stepPct = Math.min(100, Math.max(0, ((elapsed - 2700) / 1400) * 100));
+    // Step 2: PagedAttention Buffer (4200ms -> 6900ms)
+    if (elapsed >= 4200) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 4200) / 2700) * 100));
       const allocatedGb = (16.0 + (stepPct / 100) * 16.0).toFixed(1);
       const bar = renderAsciiBar(stepPct, 12);
       list.push({
@@ -92,9 +92,9 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 3: Quantization Calibration (4200ms -> 5800ms)
-    if (elapsed >= 4200) {
-      const stepPct = Math.min(100, Math.max(0, ((elapsed - 4200) / 1400) * 100));
+    // Step 3: Quantization Calibration (6800ms -> 9600ms)
+    if (elapsed >= 6800) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 6800) / 2800) * 100));
       const bar = renderAsciiBar(stepPct, 12);
       list.push({
         id: 3,
@@ -103,11 +103,11 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 4: Sparse Attention Density Sparkline (5700ms -> 7300ms)
-    if (elapsed >= 5700) {
-      const frameIdx = Math.floor(elapsed / 180) % SPARKLINE_FRAMES.length;
+    // Step 4: Sparse Attention Density Sparkline (9500ms -> 12200ms)
+    if (elapsed >= 9500) {
+      const frameIdx = Math.floor(elapsed / 160) % SPARKLINE_FRAMES.length;
       const sparkline = SPARKLINE_FRAMES[frameIdx];
-      const stepPct = Math.min(100, Math.max(0, ((elapsed - 5700) / 1400) * 100));
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 9500) / 2700) * 100));
       list.push({
         id: 4,
         text: `[SPARSE] Attention Density: ${sparkline} (${stepPct.toFixed(0)}% mapped / 128k context)`,
@@ -115,9 +115,9 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 5: Rust Daemon IPC Zero-Copy Channel (7200ms -> 8600ms)
-    if (elapsed >= 7200) {
-      const stepPct = Math.min(100, Math.max(0, ((elapsed - 7200) / 1200) * 100));
+    // Step 5: Rust Daemon IPC Zero-Copy Channel (12000ms -> 14100ms)
+    if (elapsed >= 12000) {
+      const stepPct = Math.min(100, Math.max(0, ((elapsed - 12000) / 2100) * 100));
       const bar = renderAsciiBar(stepPct, 12);
       list.push({
         id: 5,
@@ -126,8 +126,8 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       });
     }
 
-    // Step 6: Final Ready (8600ms+)
-    if (elapsed >= 8600) {
+    // Step 6: Final Ready (14000ms+)
+    if (elapsed >= 14000) {
       list.push({
         id: 6,
         text: '[ONLINE] Neural Inference Pipeline Active. Ready for input.',
@@ -164,9 +164,9 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         </div>
       </header>
 
-      {/* MAIN SPLIT PAGE DESIGN - AUTO RESPONSIVE GRID */}
-      <main className="relative z-10 flex-1 flex items-center justify-center w-full max-w-7xl mx-auto px-5 sm:px-10 lg:px-14 py-4 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 items-center justify-items-center lg:justify-items-stretch w-full gap-8 sm:gap-12 lg:gap-16">
+      {/* MAIN SPLIT PAGE DESIGN - AUTO RESPONSIVE GRID WITH ENLARGED VECTOR ARTWORK */}
+      <main className="relative z-10 flex-1 flex items-center justify-center w-full max-w-7xl mx-auto px-5 sm:px-10 lg:px-14 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 items-center justify-items-center lg:justify-items-stretch w-full gap-8 sm:gap-12 lg:gap-14">
           
           {/* LEFT COLUMN: App Name in Two Lines + Unboxed Real-Time Dynamic Commands */}
           <div className="flex flex-col justify-center items-center lg:items-start text-center lg:text-left space-y-6 sm:space-y-8 lg:space-y-10 w-full max-w-xl">
@@ -219,7 +219,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
                 })}
               </div>
 
-              {/* MINIMALIST PROGRESS HAIRLINE BAR (LIVE ANIMATED) */}
+              {/* MINIMALIST PROGRESS HAIRLINE BAR (LIVE ANIMATED ACROSS 15 SECONDS) */}
               <div className="mt-4 sm:mt-6 space-y-1.5 sm:space-y-2">
                 <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-mono">
                   <span className="text-zinc-500 tracking-wider">BOOTSTRAP PROGRESS</span>
@@ -250,20 +250,20 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
           </div>
 
-          {/* RIGHT COLUMN: Razor-Sharp Vector Butterfly (Auto-Adjustable & Responsive) */}
-          <div className="flex flex-col items-center justify-center relative select-none w-full max-w-[220px] sm:max-w-[320px] md:max-w-[380px] lg:max-w-[440px] aspect-[1104/1380]">
+          {/* RIGHT COLUMN: SLIGHTLY ENLARGED Razor-Sharp Vector Butterfly */}
+          <div className="flex flex-col items-center justify-center relative select-none w-full max-w-[270px] sm:max-w-[370px] md:max-w-[450px] lg:max-w-[520px] xl:max-w-[560px] aspect-[1104/1380]">
             {/* Soft white ambient glow */}
-            <div className="absolute inset-0 rounded-full bg-white/[0.02] blur-3xl pointer-events-none" />
+            <div className="absolute inset-0 rounded-full bg-white/[0.03] blur-3xl pointer-events-none" />
             
-            {/* Fluid Razor Sharp Butterfly */}
+            {/* Fluid Razor Sharp Butterfly (Enlarged and crystal clear) */}
             <ButterflySvg className="w-full h-full" />
 
             {/* Slogan below butterfly */}
             <div className="mt-3 sm:mt-4 text-center space-y-0.5 sm:space-y-1">
-              <div className="text-[9px] sm:text-[11px] uppercase font-mono tracking-[0.25em] sm:tracking-[0.3em] text-zinc-400">
+              <div className="text-[10px] sm:text-xs uppercase font-mono tracking-[0.25em] sm:tracking-[0.3em] text-zinc-300">
                 Neural AI Synthesis
               </div>
-              <div className="text-[9px] sm:text-[10px] text-zinc-600 font-mono">
+              <div className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">
                 Designed with TypeScript & Rust
               </div>
             </div>
