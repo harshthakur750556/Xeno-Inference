@@ -51,21 +51,25 @@ export interface ModelOption {
   iconType: 'quantum' | 'deepseek' | 'llama' | 'mistral' | 'claude';
 }
 
+export type LLMProvider = 'openrouter' | 'deepseek' | 'groq' | 'openai' | 'ollama' | 'rust_engine' | 'custom';
+
 export interface InferenceConfig {
+  provider: LLMProvider;
+  apiKey?: string;
+  baseUrl?: string;
+  rustBackendUrl: string;
+  model: string;
   temperature: number;
   topP: number;
   maxTokens: number;
   systemPrompt: string;
   stream: boolean;
   enableReasoning: boolean;
-  rustBackendUrl: string;
-  apiKey?: string;
-  model: string;
   webSearch?: boolean;
 }
 
 export interface TelemetryData {
-  engineStatus: 'connected' | 'simulated' | 'connecting';
+  engineStatus: 'connected' | 'simulated' | 'connecting' | 'disconnected';
   activeStreams: number;
   vramUsedGb: number;
   vramTotalGb: number;
@@ -75,6 +79,8 @@ export interface TelemetryData {
   rustVersion: string;
   uptimeSeconds: number;
   memoryBandwidthGbps: number;
+  providerName?: string;
+  pingMs?: number;
 }
 
 export interface BenchmarkResult {

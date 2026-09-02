@@ -1,6 +1,20 @@
-import React from 'react';
-import { X, Sliders, Server, Key, Sparkles, Brain, Cpu } from 'lucide-react';
-import type { InferenceConfig } from '../types';
+import React, { useState } from 'react';
+import {
+  X,
+  Sliders,
+  Server,
+  Key,
+  Sparkles,
+  Cpu,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Globe,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
+import type { InferenceConfig, LLMProvider } from '../types';
+import { testProviderConnection } from '../services/api';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,10 +23,62 @@ interface SettingsModalProps {
   onChange: (newConfig: InferenceConfig) => void;
 }
 
+const PROVIDERS: { id: LLMProvider; name: string; desc: string; defaultUrl: string; keyRequired: boolean }[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    desc: 'Access DeepSeek-R1, Claude 3.7, GPT-4o & all models with 1 API key',
+    defaultUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    keyRequired: true,
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek API',
+    desc: 'Official DeepSeek API for DeepSeek-R1 & DeepSeek-V3',
+    defaultUrl: 'https://api.deepseek.com/chat/completions',
+    keyRequired: true,
+  },
+  {
+    id: 'groq',
+    name: 'Groq Cloud',
+    desc: 'Ultra high-speed LPU inference for Llama 3.3, DeepSeek-R1-distill & Qwen',
+    defaultUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    keyRequired: true,
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI API',
+    desc: 'Direct OpenAI endpoint for GPT-4o and o3-mini',
+    defaultUrl: 'https://api.openai.com/v1/chat/completions',
+    keyRequired: true,
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (Local)',
+    desc: 'Local offline LLM daemon running on localhost:11434',
+    defaultUrl: 'http://localhost:11434/v1/chat/completions',
+    keyRequired: false,
+  },
+  {
+    id: 'rust_engine',
+    name: 'Rust Axum Daemon',
+    desc: 'Native Rust server running on http://127.0.0.1:3001',
+    defaultUrl: 'http://127.0.0.1:3001',
+    keyRequired: false,
+  },
+  {
+    id: 'custom',
+    name: 'Custom Endpoint',
+    desc: 'Any OpenAI-compatible vLLM, LM Studio, or local API endpoint',
+    defaultUrl: 'http://127.0.0.1:8000/v1/chat/completions',
+    keyRequired: false,
+  },
+];
+
 const SYSTEM_PROMPTS = [
   {
     name: 'Neural AI Specialist',
-    prompt: 'You are XENO, an ultra-advanced AI reasoning engine. Provide rigorous, structured, deeply insightful, and technically accurate responses.',
+    prompt: 'You are an ultra-advanced AI reasoning engine. Provide rigorous, structured, deeply insightful, and technically accurate responses.',
   },
   {
     name: 'Senior Systems Architect',
@@ -24,7 +90,7 @@ const SYSTEM_PROMPTS = [
   },
   {
     name: 'Concise Assistant',
-    prompt: 'Answer questions directly, concisely, and with maximum clarity without unnecessary fluff.',
+    prompt: 'Answer questions directly, concisely, and with maximum clarity without unnecessary filler.',
   },
 ];
 
@@ -34,10 +100,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   config,
   onChange,
 }) => {
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ connected: boolean; latencyMs: number; message: string } | null>(null);
+
   if (!isOpen) return null;
 
+  const currentProvider = PROVIDERS.find((p) => p.id === config.provider) || PROVIDERS[0];
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const res = await testProviderConnection(config);
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({
+        connected: false,
+        latencyMs: 0,
+        message: err.message || 'Connection test failed',
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSelectProvider = (providerId: LLMProvider) => {
+    const p = PROVIDERS.find((item) => item.id === providerId);
+    if (!p) return;
+    onChange({
+      ...config,
+      provider: providerId,
+      baseUrl: p.defaultUrl,
+    });
+    setTestResult(null);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md select-none">
       <div className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl rounded-2xl border border-white/10 bg-[#09090b] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]">
         
         {/* Header */}
@@ -45,7 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="flex items-center gap-2 sm:gap-2.5">
             <Sliders className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             <h2 className="text-sm sm:text-base font-semibold text-white tracking-wide">
-              Inference Parameters
+              LLM Provider & Engine Configuration
             </h2>
           </div>
           <button
@@ -59,157 +159,175 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 text-xs sm:text-sm">
           
-          {/* Backend Connection */}
+          {/* Provider Selection Grid */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Server className="w-3.5 h-3.5 text-zinc-400" />
-              Rust Backend Endpoint (Axum HTTP/SSE)
+              <Globe className="w-3.5 h-3.5 text-zinc-400" />
+              Active Inference Provider
             </label>
-            <input
-              type="text"
-              value={config.rustBackendUrl}
-              onChange={(e) => onChange({ ...config, rustBackendUrl: e.target.value })}
-              placeholder="http://127.0.0.1:3001"
-              className="w-full px-3.5 py-2 rounded-xl bg-black border border-white/10 text-zinc-200 font-mono text-xs focus:outline-none focus:border-white transition"
-            />
-            <p className="text-[11px] text-zinc-500">
-              Default local Rust server port: 3001. Fallbacks to client neural simulation if offline.
-            </p>
-          </div>
-
-          {/* Temperature Slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-              <span className="flex items-center gap-2 uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-                Temperature (Sampling Entropy)
-              </span>
-              <span className="font-mono text-white">{config.temperature.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min="0.0"
-              max="1.5"
-              step="0.05"
-              value={config.temperature}
-              onChange={(e) => onChange({ ...config, temperature: parseFloat(e.target.value) })}
-              className="w-full accent-white cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
-              <span>0.0 (Deterministic)</span>
-              <span>0.7 (Balanced)</span>
-              <span>1.5 (Creative)</span>
-            </div>
-          </div>
-
-          {/* Top-P Nucleus Sampling */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-              <span className="flex items-center gap-2 uppercase tracking-wider">
-                <Cpu className="w-3.5 h-3.5 text-zinc-400" />
-                Top-P (Nucleus Cutoff)
-              </span>
-              <span className="font-mono text-white">{config.topP.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min="0.1"
-              max="1.0"
-              step="0.05"
-              value={config.topP}
-              onChange={(e) => onChange({ ...config, topP: parseFloat(e.target.value) })}
-              className="w-full accent-white cursor-pointer"
-            />
-          </div>
-
-          {/* Max Generation Tokens */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-              <span className="uppercase tracking-wider">Max Output Tokens</span>
-              <span className="font-mono text-white">{config.maxTokens}</span>
-            </div>
-            <input
-              type="range"
-              min="256"
-              max="8192"
-              step="256"
-              value={config.maxTokens}
-              onChange={(e) => onChange({ ...config, maxTokens: parseInt(e.target.value) })}
-              className="w-full accent-white cursor-pointer"
-            />
-          </div>
-
-          {/* Deep Reasoning Mode Toggle */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/10">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                <Brain className="w-4 h-4 text-zinc-400" />
-                Deep Reasoning (Chain of Thought)
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Shows real-time thought traces before presenting final answers.
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={config.enableReasoning}
-              onChange={(e) => onChange({ ...config, enableReasoning: e.target.checked })}
-              className="w-4 h-4 accent-white rounded cursor-pointer"
-            />
-          </div>
-
-          {/* System Prompt Presets */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block">
-              System Instruction Prompt
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {SYSTEM_PROMPTS.map((preset) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {PROVIDERS.map((p) => (
                 <button
-                  key={preset.name}
+                  key={p.id}
                   type="button"
-                  onClick={() => onChange({ ...config, systemPrompt: preset.prompt })}
-                  className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/10 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition cursor-pointer"
+                  onClick={() => handleSelectProvider(p.id)}
+                  className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    config.provider === p.id
+                      ? 'bg-zinc-800 border-white text-white shadow-sm'
+                      : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  }`}
                 >
-                  {preset.name}
+                  <div className="font-semibold text-xs text-white">{p.name}</div>
+                  <div className="text-[10px] text-zinc-400 truncate mt-0.5">{p.desc}</div>
                 </button>
               ))}
             </div>
-            <textarea
-              rows={3}
-              value={config.systemPrompt}
-              onChange={(e) => onChange({ ...config, systemPrompt: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-black border border-white/10 text-zinc-200 text-xs font-mono focus:outline-none focus:border-white transition resize-none"
-            />
           </div>
 
-          {/* Optional External API Key */}
+          {/* API Key Input (if required) */}
+          {currentProvider.keyRequired && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                  <Key className="w-3.5 h-3.5 text-zinc-400" />
+                  {currentProvider.name} API Key
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 transition"
+                >
+                  {showApiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  <span>{showApiKey ? 'Hide' : 'Show'}</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={config.apiKey || ''}
+                  onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
+                  placeholder={`Enter your ${currentProvider.name} API key...`}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black border border-white/10 text-zinc-200 font-mono text-xs focus:outline-none focus:border-white transition"
+                />
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                Stored securely in your local browser session. Never sent to any third-party servers.
+              </p>
+            </div>
+          )}
+
+          {/* Endpoint URL Input */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Key className="w-3.5 h-3.5 text-zinc-400" />
-              API Key (Optional / OpenAI, Anthropic, Ollama Proxy)
+              <Server className="w-3.5 h-3.5 text-zinc-400" />
+              Endpoint URL
             </label>
             <input
-              type="password"
-              value={config.apiKey || ''}
-              onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
-              placeholder="sk-..."
-              className="w-full px-3.5 py-2 rounded-xl bg-black border border-white/10 text-zinc-200 font-mono text-xs focus:outline-none focus:border-white transition"
+              type="text"
+              value={config.baseUrl || currentProvider.defaultUrl}
+              onChange={(e) => onChange({ ...config, baseUrl: e.target.value })}
+              placeholder={currentProvider.defaultUrl}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-black border border-white/10 text-zinc-200 font-mono text-xs focus:outline-none focus:border-white transition"
             />
           </div>
 
-        </div>
+          {/* Test Connection Button & Status Output */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                <span>{isTesting ? 'Testing Connection...' : 'Test Connection'}</span>
+              </button>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-3.5 border-t border-white/10 bg-white/[0.02]">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-xs font-semibold text-black transition cursor-pointer shadow-lg"
-          >
-            Apply Changes
-          </button>
-        </div>
+              {testResult && (
+                <div
+                  className={`flex items-center gap-1.5 text-xs font-mono px-3 py-1 rounded-lg border ${
+                    testResult.connected
+                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                      : 'bg-red-950/40 border-red-500/30 text-red-300'
+                  }`}
+                >
+                  {testResult.connected ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                  )}
+                  <span>{testResult.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
 
+          {/* Hyperparameters Divider */}
+          <div className="pt-2 border-t border-zinc-800 space-y-4">
+            
+            {/* Temperature Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                <span className="flex items-center gap-2 uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+                  Temperature (Sampling Entropy)
+                </span>
+                <span className="font-mono text-white">{config.temperature.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.0"
+                max="1.5"
+                step="0.05"
+                value={config.temperature}
+                onChange={(e) => onChange({ ...config, temperature: parseFloat(e.target.value) })}
+                className="w-full accent-white cursor-pointer"
+              />
+            </div>
+
+            {/* Top-P Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                <span className="flex items-center gap-2 uppercase tracking-wider">
+                  <Cpu className="w-3.5 h-3.5 text-zinc-400" />
+                  Top-P (Nucleus Sampling)
+                </span>
+                <span className="font-mono text-white">{config.topP.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={config.topP}
+                onChange={(e) => onChange({ ...config, topP: parseFloat(e.target.value) })}
+                className="w-full accent-white cursor-pointer"
+              />
+            </div>
+
+            {/* System Prompt Presets */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                System Persona
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {SYSTEM_PROMPTS.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => onChange({ ...config, systemPrompt: item.prompt })}
+                    className="p-2.5 text-left rounded-xl bg-black border border-white/10 hover:border-white/30 text-xs transition cursor-pointer"
+                  >
+                    <div className="font-semibold text-white">{item.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
       </div>
     </div>
   );

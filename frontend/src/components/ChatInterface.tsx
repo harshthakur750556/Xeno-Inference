@@ -23,6 +23,7 @@ import {
   X,
   Globe,
   Layers,
+  Key,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -36,6 +37,7 @@ import type {
   FileAttachment,
   ChatSession,
   SlashCommand,
+  LLMProvider,
 } from '../types';
 import {
   AVAILABLE_MODELS,
@@ -86,18 +88,38 @@ const STARTER_PROMPTS = [
   },
 ];
 
+const CONFIG_STORAGE_KEY = 'xeno_inference_config_v2';
+
 export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
-  const [config, setConfig] = useState<InferenceConfig>({
-    temperature: 0.7,
-    topP: 0.9,
-    maxTokens: 2048,
-    systemPrompt: 'You are an ultra-advanced AI reasoning engine. Provide structured, accurate, and deeply insightful responses with clean code.',
-    stream: true,
-    enableReasoning: true,
-    rustBackendUrl: 'http://127.0.0.1:3001',
-    model: 'deepseek-r1',
-    webSearch: false,
+  const [config, setConfig] = useState<InferenceConfig>(() => {
+    try {
+      const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return {
+      provider: 'openrouter' as LLMProvider,
+      apiKey: '',
+      baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+      rustBackendUrl: 'http://127.0.0.1:3001',
+      model: 'deepseek-r1',
+      temperature: 0.7,
+      topP: 0.9,
+      maxTokens: 2048,
+      systemPrompt: 'You are an ultra-advanced AI reasoning engine. Provide structured, accurate, and deeply insightful responses with clean code.',
+      stream: true,
+      enableReasoning: true,
+      webSearch: false,
+    };
   });
+
+  // Save config on changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+    } catch {}
+  }, [config]);
 
   // Persistent Sessions
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -129,8 +151,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editMessageContent, setEditMessageContent] = useState('');
 
-  // Backend Health
-  const [isBackendOnline, setIsBackendOnline] = useState(false);
+  // Live Provider Status
+  const [providerStatus, setProviderStatus] = useState<{
+    connected: boolean;
+    label: string;
+    pingMs?: number;
+  }>({
+    connected: false,
+    label: 'Checking connection...',
+  });
 
   // Modals & Navigation
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -176,21 +205,57 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Check Backend Health
+  // Check Active Provider Status
   useEffect(() => {
     let isMounted = true;
-    const checkHealth = async () => {
-      const online = await checkBackendHealth(config.rustBackendUrl);
-      if (isMounted) setIsBackendOnline(online);
+    const checkStatus = async () => {
+      if (config.provider === 'rust_engine') {
+        const online = await checkBackendHealth(config.rustBackendUrl);
+        if (isMounted) {
+          setProviderStatus({
+            connected: online,
+            label: online ? 'RUST DAEMON (Port 3001)' : 'RUST DAEMON (Offline)',
+          });
+        }
+        return;
+      }
+
+      if (config.provider === 'ollama') {
+        try {
+          const res = await fetch(`${config.baseUrl || 'http://localhost:11434'}/api/tags`);
+          if (isMounted) {
+            setProviderStatus({
+              connected: res.ok,
+              label: res.ok ? 'OLLAMA (localhost:11434)' : 'OLLAMA (Offline)',
+            });
+          }
+        } catch {
+          if (isMounted) {
+            setProviderStatus({ connected: false, label: 'OLLAMA (Offline)' });
+          }
+        }
+        return;
+      }
+
+      // Cloud Providers
+      const hasKey = Boolean(config.apiKey && config.apiKey.trim().length > 4);
+      if (isMounted) {
+        setProviderStatus({
+          connected: hasKey,
+          label: hasKey
+            ? `${config.provider.toUpperCase()} (Connected)`
+            : `${config.provider.toUpperCase()} (API Key Required)`,
+        });
+      }
     };
 
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
+    checkStatus();
+    const interval = setInterval(checkStatus, 8000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [config.rustBackendUrl]);
+  }, [config.provider, config.apiKey, config.baseUrl, config.rustBackendUrl]);
 
   // Live Thinking Duration Stopwatch
   useEffect(() => {
@@ -279,7 +344,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
   // Send Prompt
   const handleSendMessage = async (textToSend?: string) => {
-    let promptText = (textToSend || input).trim();
+    const promptText = (textToSend || input).trim();
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
 
@@ -378,19 +443,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       },
       (err) => {
         console.error('Inference error:', err);
-        if (accumulatedContent) {
-          const assistantMessage: Message = {
-            id: 'msg-' + Date.now() + '-ai',
-            role: 'assistant',
-            content: accumulatedContent,
-            reasoning: accumulatedReasoning || undefined,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
-          const finalizedMessages = [...newMessages, assistantMessage];
-          setMessages(finalizedMessages);
-          updateSession(currentSessionId!, (s) => ({ ...s, messages: finalizedMessages }));
-          setSessions(getStoredSessions());
-        }
+        const errorContent = `**Connection Error:** ${err.message}\n\nPlease click **Settings** (gear icon in top right) to configure your **${config.provider.toUpperCase()}** API Key or switch providers.`;
+
+        const assistantMessage: Message = {
+          id: 'msg-' + Date.now() + '-ai-error',
+          role: 'assistant',
+          content: errorContent,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        const finalizedMessages = [...newMessages, assistantMessage];
+        setMessages(finalizedMessages);
+        updateSession(currentSessionId!, (s) => ({ ...s, messages: finalizedMessages }));
+        setSessions(getStoredSessions());
+
         setIsStreaming(false);
         setStreamingReasoning('');
         setStreamingContent('');
@@ -711,12 +776,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             })}
           </div>
 
-          {/* Engine Status Tag */}
-          <div className="mt-auto pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[10px] font-mono text-zinc-500 px-1">
-            <span>RUST AXUM</span>
-            <span className={isBackendOnline ? 'text-zinc-300' : 'text-zinc-500'}>
-              {isBackendOnline ? 'DAEMON ONLINE' : 'LOCAL SIM'}
-            </span>
+          {/* Provider Status Tag in Sidebar */}
+          <div
+            onClick={() => setIsSettingsOpen(true)}
+            className="mt-auto pt-2.5 border-t border-zinc-800/80 flex items-center justify-between text-[10px] font-mono text-zinc-400 px-1 cursor-pointer hover:text-white transition"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className="truncate max-w-[160px]">{providerStatus.label}</span>
+            </div>
+            <span className="text-zinc-600 hover:text-zinc-300">Config ↗</span>
           </div>
 
         </div>
@@ -725,7 +794,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       {/* ================= MAIN CHAT FEED ================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         
-        {/* CLEAN, MINIMAL HEADER (Claude & ChatGPT Style) */}
+        {/* CLEAN, MINIMAL HEADER */}
         <header className="h-14 border-b border-zinc-800/60 bg-[#000000]/80 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 flex-shrink-0">
           
           {/* Left: Sidebar Toggle & Model Selector */}
@@ -785,9 +854,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 </div>
               )}
             </div>
+
+            {/* Provider Pill */}
+            <div
+              onClick={() => setIsSettingsOpen(true)}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400 hover:text-white cursor-pointer transition"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span>{config.provider.toUpperCase()}</span>
+            </div>
           </div>
 
-          {/* Right: New Chat, Canvas Toggle & Settings */}
+          {/* Right: Canvas Toggle & Settings */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={() => setIsCanvasOpen(!isCanvasOpen)}
@@ -805,7 +883,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
-              title="Inference Parameters"
+              title="Inference Parameters & API Keys"
             >
               <Sliders className="w-4 h-4 text-zinc-300" />
             </button>
@@ -813,7 +891,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
         </header>
 
-        {/* ================= MESSAGE STREAM (UNBOXED MINIMAL FLOW) ================= */}
+        {/* ================= MESSAGE STREAM ================= */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 max-w-4xl mx-auto w-full">
           
           {/* Welcome Screen */}
@@ -833,8 +911,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-                  High-throughput neural engine running {selectedModel.name}. Ask complex engineering problems or start with a preset.
+                  Real-time neural token stream connected to {selectedModel.name} via {config.provider.toUpperCase()}.
                 </p>
+
+                {!providerStatus.connected && (
+                  <div
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono cursor-pointer hover:bg-amber-950/50 transition"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>API Key Required • Click here to configure {config.provider.toUpperCase()}</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full pt-1">
@@ -857,7 +945,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
           )}
 
-          {/* Messages Flow (Seamless, Unboxed, Ultra-Minimal) */}
+          {/* Messages Flow */}
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
             const isEditingThis = editingMessageId === msg.id;
@@ -870,7 +958,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   (isUser ? 'justify-end' : 'justify-start')
                 }
               >
-                {/* Assistant Message (Completely Borderless & Flowing) */}
                 {!isUser ? (
                   <div className="flex gap-3 sm:gap-4 max-w-full w-full">
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center p-1 mt-1">
@@ -938,7 +1025,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     </div>
                   </div>
                 ) : (
-                  /* User Message (Minimal Sleek Capsule) */
                   <div className="flex flex-col items-end space-y-1.5 max-w-[85%] sm:max-w-[75%]">
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-1">
@@ -1003,7 +1089,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             );
           })}
 
-          {/* ACTIVE STREAMING (Seamless Flow) */}
+          {/* ACTIVE STREAMING */}
           {isStreaming && (
             <div className="flex gap-3 sm:gap-4 max-w-full w-full">
               <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center p-1 mt-1">
@@ -1027,7 +1113,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 ) : !streamingReasoning ? (
                   <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 py-1">
                     <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                    <span>Inference active...</span>
+                    <span>Streaming live tokens from {config.provider.toUpperCase()}...</span>
                   </div>
                 ) : null}
               </div>
@@ -1037,7 +1123,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           <div ref={messagesEndRef} />
         </main>
 
-        {/* ================= MODERN FLOATING OMNIBAR (Claude & ChatGPT Style) ================= */}
+        {/* ================= MODERN FLOATING OMNIBAR ================= */}
         <footer className="p-3 sm:p-5 bg-gradient-to-t from-[#000000] via-[#000000] to-transparent z-20 flex-shrink-0">
           <div className="max-w-3xl mx-auto space-y-2 relative">
             
@@ -1096,7 +1182,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder={"Message " + selectedModel.name + "..."}
+                placeholder={"Message " + selectedModel.name + " (" + config.provider.toUpperCase() + ")..."}
                 rows={1}
                 className="w-full px-3 py-1.5 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-40 overflow-y-auto leading-relaxed"
                 style={{ minHeight: '38px' }}
@@ -1194,7 +1280,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
 
             <div className="text-center text-[10px] font-mono text-zinc-600">
-              {selectedModel.name} • {selectedModel.contextWindow} Context • Press Enter to send, Shift+Enter for new line
+              Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow} Context
             </div>
 
           </div>
