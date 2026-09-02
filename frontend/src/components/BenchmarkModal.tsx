@@ -34,14 +34,14 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-[#09090b] shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+      <div className="relative w-full max-w-md sm:max-w-lg md:max-w-xl rounded-2xl border border-white/10 bg-[#09090b] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
-          <div className="flex items-center gap-2.5">
-            <Gauge className="w-5 h-5 text-white" />
-            <h2 className="text-base font-semibold text-white tracking-wide">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <Gauge className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <h2 className="text-sm sm:text-base font-semibold text-white tracking-wide">
               Throughput Benchmark
             </h2>
           </div>
@@ -49,12 +49,12 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
             onClick={onClose}
             className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6 text-sm">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 text-xs sm:text-sm overflow-y-auto">
           <p className="text-xs text-zinc-400 leading-relaxed">
             Measures raw forward-pass token emission latency, memory bandwidth, and Time-To-First-Token (TTFT) across the Rust Axum engine.
           </p>

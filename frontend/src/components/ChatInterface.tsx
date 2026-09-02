@@ -346,29 +346,51 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#000000] text-white overflow-hidden select-none font-sans">
+    <div className="flex h-[100dvh] w-screen bg-[#000000] text-white overflow-hidden select-none font-sans">
+      {/* Mobile Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 md:hidden transition-opacity"
+        />
+      )}
+
+      {/* Responsive Sidebar (Drawer on mobile, collapsible on desktop) */}
       <aside
         className={`${
-          isSidebarOpen ? 'w-64 sm:w-72' : 'w-0'
-        } transition-all duration-300 ease-in-out bg-[#09090b] border-r border-zinc-800 flex flex-col justify-between overflow-hidden relative z-30`}
+          isSidebarOpen
+            ? 'translate-x-0 w-72 md:w-64 lg:w-72'
+            : '-translate-x-full md:translate-x-0 md:w-0'
+        } fixed inset-y-0 left-0 md:relative z-40 transition-all duration-300 ease-in-out bg-[#09090b] border-r border-zinc-800 flex flex-col justify-between overflow-hidden`}
       >
         <div className="p-4 space-y-4 flex flex-col h-full overflow-y-auto">
-          <div className="flex items-center gap-2.5 px-2 py-1">
-            <XenoLogo size={24} />
-            <div className="flex flex-col">
-              <span className="font-roman text-sm font-bold tracking-wider text-white">
-                XENO
-              </span>
-              <span className="font-calligraphy text-xs text-zinc-400 -mt-1">
-                Inference
-              </span>
+          <div className="flex items-center justify-between px-2 py-1">
+            <div className="flex items-center gap-2.5">
+              <XenoLogo size={24} />
+              <div className="flex flex-col">
+                <span className="font-roman text-sm font-bold tracking-wider text-white">
+                  XENO
+                </span>
+                <span className="font-calligraphy text-xs text-zinc-400 -mt-1">
+                  Inference
+                </span>
+              </div>
             </div>
+
+            {/* Mobile close button */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1 text-zinc-500 hover:text-white md:hidden transition"
+            >
+              &times;
+            </button>
           </div>
 
           <button
             onClick={() => {
               setMessages([]);
               handleStopGeneration();
+              if (window.innerWidth < 768) setIsSidebarOpen(false);
             }}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-200 text-xs font-semibold text-black transition cursor-pointer shadow-sm"
           >
@@ -384,7 +406,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
               {STARTER_PROMPTS.map((starter, sIdx) => (
                 <button
                   key={sIdx}
-                  onClick={() => handleSendMessage(starter.prompt)}
+                  onClick={() => {
+                    handleSendMessage(starter.prompt);
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  }}
                   className="w-full text-left p-2.5 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/80 border border-zinc-800 transition group cursor-pointer"
                 >
                   <div className="text-xs font-medium text-zinc-200 group-hover:text-white truncate">
@@ -419,33 +444,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="h-16 border-b border-zinc-800 bg-[#09090b]/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20">
-          <div className="flex items-center gap-3">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
+        <header className="h-16 border-b border-zinc-800 bg-[#09090b]/95 backdrop-blur-xl px-3 sm:px-6 flex items-center justify-between z-20 flex-shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer flex-shrink-0"
               title="Toggle Sidebar"
             >
               <Terminal className="w-4 h-4 text-zinc-300" />
             </button>
 
-            <div className="relative">
+            <div className="relative min-w-0">
               <button
                 type="button"
                 onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium transition cursor-pointer"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium transition cursor-pointer max-w-[180px] sm:max-w-none truncate"
               >
-                <div className="w-2 h-2 rounded-full bg-white" />
-                <span className="font-semibold text-zinc-100">{selectedModel.name}</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10">
+                <div className="w-2 h-2 rounded-full bg-white flex-shrink-0" />
+                <span className="font-semibold text-zinc-100 truncate">{selectedModel.name}</span>
+                <span className="hidden xs:inline px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10 flex-shrink-0">
                   {selectedModel.badge || '70B'}
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
               </button>
 
               {isModelDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-80 rounded-2xl bg-[#0e0e11] border border-zinc-700 shadow-2xl p-2 z-50 animate-fade-in space-y-1">
+                <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 rounded-2xl bg-[#0e0e11] border border-zinc-700 shadow-2xl p-2 z-50 animate-fade-in space-y-1">
                   {AVAILABLE_MODELS.map((model) => (
                     <button
                       key={model.id}
@@ -460,10 +485,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                           : 'hover:bg-zinc-800/50 border border-transparent'
                       }`}
                     >
-                      <div className="w-2.5 h-2.5 rounded-full mt-1 bg-white" />
+                      <div className="w-2.5 h-2.5 rounded-full mt-1 bg-white flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-white">{model.name}</span>
+                          <span className="text-xs font-semibold text-white truncate">{model.name}</span>
                           <span className="text-[10px] font-mono text-zinc-500">{model.params}</span>
                         </div>
                         <p className="text-[11px] text-zinc-400 truncate mt-0.5">{model.tagline}</p>
@@ -474,7 +499,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
               )}
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
+            <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
               <span className={`w-1.5 h-1.5 rounded-full ${isBackendOnline ? 'bg-white animate-pulse' : 'bg-zinc-500'}`} />
               <span className="text-zinc-400">
                 {isBackendOnline ? 'Rust Axum (Port 3001)' : 'Local Engine'}
@@ -482,19 +507,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <button
               onClick={onReplayIntro}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
-              title="Replay 3-second opening animation"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
+              title="Replay intro animation"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
-              <span className="hidden md:inline">Replay Intro</span>
+              <span className="hidden sm:inline">Intro</span>
             </button>
 
             <button
               onClick={() => setIsTelemetryOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
               title="View live engine telemetry"
             >
               <Activity className="w-3.5 h-3.5 text-zinc-300" />
@@ -503,7 +528,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
 
             <button
               onClick={() => setIsBenchmarkOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition cursor-pointer"
               title="Run throughput benchmark"
             >
               <Gauge className="w-3.5 h-3.5 text-zinc-300" />
@@ -520,14 +545,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
           {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-6 my-auto select-none">
-              <div className="relative">
-                <ButterflySvg size={280} />
+            <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-4 sm:space-y-6 my-auto select-none py-4">
+              <div className="w-full max-w-[160px] sm:max-w-[220px] md:max-w-[260px] aspect-[1104/1380]">
+                <ButterflySvg className="w-full h-full" />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1 sm:space-y-1.5 px-2">
                 <div className="flex items-baseline justify-center gap-3">
                   <span className="font-roman text-3xl sm:text-4xl font-extrabold tracking-widest text-white">
                     XENO

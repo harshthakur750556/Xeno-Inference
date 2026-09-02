@@ -2,26 +2,33 @@ import React from 'react';
 
 interface ButterflySvgProps {
   className?: string;
-  size?: number;
+  size?: number | string;
 }
 
 export const ButterflySvg: React.FC<ButterflySvgProps> = ({
   className = '',
-  size = 420,
+  size,
 }) => {
+  const containerStyle: React.CSSProperties | undefined = size
+    ? {
+        width: typeof size === 'number' ? `${size}px` : size,
+        height: typeof size === 'number' ? `${size * 1.15}px` : 'auto',
+      }
+    : undefined;
+
   return (
     <div
       className={`relative flex items-center justify-center select-none ${className}`}
-      style={{ width: size, height: size * 1.15 }}
+      style={containerStyle}
     >
-      {/* Exact Original Butterfly SVG - Razor Sharp, Static, Monochrome */}
+      {/* Exact Original Butterfly SVG - Razor Sharp, Static, Monochrome, Auto-Responsive */}
       <svg
         viewBox="0 0 1104 1380"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         shapeRendering="geometricPrecision"
         textRendering="geometricPrecision"
-        className="w-full h-full drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
+        className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]"
       >
         <g strokeWidth="0">
           <path

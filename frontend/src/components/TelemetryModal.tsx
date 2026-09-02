@@ -18,36 +18,36 @@ export const TelemetryModal: React.FC<TelemetryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#09090b] shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+      <div className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl rounded-2xl border border-white/10 bg-[#09090b] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
-          <div className="flex items-center gap-2.5">
-            <Activity className="w-5 h-5 text-white" />
-            <h2 className="text-base font-semibold text-white tracking-wide">
-              Xeno Rust Engine Telemetry & HUD
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <h2 className="text-sm sm:text-base font-semibold text-white tracking-wide truncate">
+              Xeno Engine Telemetry & HUD
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={onRefresh}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
               title="Refresh telemetry"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5 text-sm">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 text-xs sm:text-sm overflow-y-auto">
           
           {/* Status Banner */}
           <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/10">
