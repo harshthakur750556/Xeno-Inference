@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Trophy,
@@ -6,145 +6,16 @@ import {
   ExternalLink,
   Search,
   DollarSign,
+  RotateCw,
 } from 'lucide-react';
+import { fetchLiveArenaLeaderboard } from '../services/liveData';
+import type { LiveLeaderboardModel } from '../services/liveData';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectModel?: (modelId: string) => void;
 }
-
-interface BenchmarkModel {
-  rank: number;
-  name: string;
-  id: string;
-  provider: string;
-  arenaElo: number;
-  codingScore: number; // SWE-bench / HumanEval
-  mathScore: number; // MATH-500 / AIME 2024
-  tokensPerSec: number;
-  ttftMs: number;
-  pricePerMillionIn: number;
-  pricePerMillionOut: number;
-  contextWindow: string;
-  license: 'Open Weights' | 'Proprietary';
-  specialty: string;
-}
-
-const LEADERBOARD_DATA: BenchmarkModel[] = [
-  {
-    rank: 1,
-    name: 'Claude 3.7 Sonnet (Thinking)',
-    id: 'claude-3-7-sonnet',
-    provider: 'Anthropic',
-    arenaElo: 1374,
-    codingScore: 70.3,
-    mathScore: 96.2,
-    tokensPerSec: 68.4,
-    ttftMs: 380,
-    pricePerMillionIn: 3.0,
-    pricePerMillionOut: 15.0,
-    contextWindow: '200k',
-    license: 'Proprietary',
-    specialty: 'Hybrid reasoning, software engineering & multi-file agents',
-  },
-  {
-    rank: 2,
-    name: 'DeepSeek-R1 (Full 671B)',
-    id: 'deepseek-r1',
-    provider: 'DeepSeek AI',
-    arenaElo: 1358,
-    codingScore: 65.9,
-    mathScore: 97.3,
-    tokensPerSec: 42.1,
-    ttftMs: 460,
-    pricePerMillionIn: 0.55,
-    pricePerMillionOut: 2.19,
-    contextWindow: '128k',
-    license: 'Open Weights',
-    specialty: 'Pure autonomous reinforcement learning, formal proofs & STEM',
-  },
-  {
-    rank: 3,
-    name: 'OpenAI o3-mini (High)',
-    id: 'o3-mini',
-    provider: 'OpenAI',
-    arenaElo: 1345,
-    codingScore: 68.1,
-    mathScore: 97.9,
-    tokensPerSec: 92.5,
-    ttftMs: 290,
-    pricePerMillionIn: 1.1,
-    pricePerMillionOut: 4.4,
-    contextWindow: '128k',
-    license: 'Proprietary',
-    specialty: 'High-speed competitive coding & Olympiad mathematics',
-  },
-  {
-    rank: 4,
-    name: 'GPT-4o (Omni Flagship)',
-    id: 'gpt-4o',
-    provider: 'OpenAI',
-    arenaElo: 1332,
-    codingScore: 53.8,
-    mathScore: 76.6,
-    tokensPerSec: 104.2,
-    ttftMs: 190,
-    pricePerMillionIn: 2.5,
-    pricePerMillionOut: 10.0,
-    contextWindow: '128k',
-    license: 'Proprietary',
-    specialty: 'Low-latency multimodal general intelligence & voice processing',
-  },
-  {
-    rank: 5,
-    name: 'DeepSeek-V3 (MLA MoE)',
-    id: 'deepseek-v3',
-    provider: 'DeepSeek AI',
-    arenaElo: 1318,
-    codingScore: 49.2,
-    mathScore: 75.8,
-    tokensPerSec: 74.0,
-    ttftMs: 210,
-    pricePerMillionIn: 0.14,
-    pricePerMillionOut: 0.28,
-    contextWindow: '128k',
-    license: 'Open Weights',
-    specialty: 'Ultra-low cost general reasoning with Multi-Head Latent Attention',
-  },
-  {
-    rank: 6,
-    name: 'Llama 3.3 70B Instruct',
-    id: 'llama-3-3-70b',
-    provider: 'Meta AI',
-    arenaElo: 1290,
-    codingScore: 48.6,
-    mathScore: 71.4,
-    tokensPerSec: 118.6,
-    ttftMs: 140,
-    pricePerMillionIn: 0.59,
-    pricePerMillionOut: 0.79,
-    contextWindow: '128k',
-    license: 'Open Weights',
-    specialty: 'High throughput enterprise instruct & self-hosted deployments',
-  },
-  {
-    rank: 7,
-    name: 'Qwen 2.5 Coder 32B',
-    id: 'qwen-2-5-coder',
-    provider: 'Alibaba Cloud',
-    arenaElo: 1284,
-    codingScore: 57.4,
-    mathScore: 72.8,
-    tokensPerSec: 88.0,
-    ttftMs: 160,
-    pricePerMillionIn: 0.2,
-    pricePerMillionOut: 0.2,
-    contextWindow: '128k',
-    license: 'Open Weights',
-    specialty: 'Polyglot code completion, AST refactoring & debugging',
-  },
-];
 
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
@@ -154,22 +25,46 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'reasoning' | 'coding' | 'open'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'arenaElo' | 'codingScore' | 'mathScore' | 'tokensPerSec'>('arenaElo');
+  const [models, setModels] = useState<LiveLeaderboardModel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchLiveArenaLeaderboard();
+      setModels(data);
+      setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      console.error('Error loading live arena leaderboard:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const filtered = LEADERBOARD_DATA.filter((m) => {
-    const matchesSearch =
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+  const filtered = models
+    .filter((m) => {
+      const matchesSearch =
+        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.specialty.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (filterType === 'reasoning') return m.mathScore >= 90;
-    if (filterType === 'coding') return m.codingScore >= 50;
-    if (filterType === 'open') return m.license === 'Open Weights';
-    return true;
-  }).sort((a, b) => b[sortBy] - a[sortBy]);
+      if (filterType === 'reasoning') return m.mathScore >= 90;
+      if (filterType === 'coding') return m.codingScore >= 50;
+      if (filterType === 'open') return m.license === 'Open Weights';
+      return true;
+    })
+    .sort((a, b) => b[sortBy] - a[sortBy]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md select-none">
@@ -186,22 +81,33 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
                   Global AI Model Leaderboard
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-zinc-300 border border-white/10">
-                  LIVE ARENA & BENCHMARKS
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>LIVE LMSYS ARENA DATA</span>
                 </span>
               </div>
               <p className="text-xs text-zinc-400">
-                Verified data aggregated from LMSYS Chatbot Arena (arena.ai) and ArtificialAnalysis.com
+                Verified live benchmarks from LMSYS Chatbot Arena & OpenRouter Model Index (Updated {lastRefreshed})
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+              title="Refresh live data"
+            >
+              <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-white' : ''}`} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Toolbar & Filter Tabs */}
@@ -398,7 +304,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 sm:px-7 py-3 border-t border-zinc-800 bg-[#060608] flex items-center justify-between text-xs font-mono text-zinc-500">
-          <span>Sources: Chatbot Arena (LMSYS) • Artificial Analysis Benchmark Index</span>
+          <span>Sources: Chatbot Arena (LMSYS) • OpenRouter Model Live Registry</span>
           <a
             href="https://chat.lmsys.org/?leaderboard"
             target="_blank"

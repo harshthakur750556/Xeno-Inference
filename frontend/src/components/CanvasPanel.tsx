@@ -61,12 +61,12 @@ export const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const chars = content.length;
 
   return (
-    <div
-      className={`fixed ${
+    <aside
+      className={`border-l border-zinc-800 bg-[#08080a] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300 ${
         isFullScreen
-          ? 'inset-0 z-50'
-          : 'inset-y-0 right-0 z-40 w-full sm:w-[480px] md:w-[560px] lg:w-[640px]'
-      } bg-[#08080a] border-l border-zinc-800 shadow-2xl flex flex-col transition-all duration-300`}
+          ? 'fixed inset-0 z-50 w-full h-full'
+          : 'relative h-full w-full sm:w-[480px] md:w-[520px] lg:w-[480px] xl:w-[560px] 2xl:w-[640px] z-30'
+      }`}
     >
       {/* Canvas Top Bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-[#0c0c10] select-none">
@@ -176,6 +176,6 @@ export const CanvasPanel: React.FC<CanvasPanelProps> = ({
           </button>
         )}
       </div>
-    </div>
+    </aside>
   );
 };

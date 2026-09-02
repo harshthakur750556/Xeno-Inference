@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Mic, Square } from 'lucide-react';
 
 interface VoiceVisualizerProps {
   isListening: boolean;
@@ -6,7 +7,7 @@ interface VoiceVisualizerProps {
 }
 
 export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ isListening, onStop }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -15,134 +16,165 @@ export const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ isListening, o
 
   useEffect(() => {
     if (!isListening) {
-      cleanupAudio();
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
       return;
     }
 
-    let isMounted = true;
+    let isCancelled = false;
 
-    async function initAudio() {
+    const setupAudio = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        if (!isMounted) {
-          stream.getTracks().forEach((track) => track.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (isCancelled) {
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
         streamRef.current = stream;
 
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioContextClass();
-        audioContextRef.current = audioCtx;
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioCtx();
+        audioContextRef.current = ctx;
 
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-        analyser.smoothingTimeConstant = 0.8;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.85;
         analyserRef.current = analyser;
 
-        const source = audioCtx.createMediaStreamSource(stream);
+        const source = ctx.createMediaStreamSource(stream);
         source.connect(analyser);
         sourceRef.current = source;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        const canvasCtx = canvas.getContext('2d');
+        if (!canvasCtx) return;
 
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+        const timeData = new Uint8Array(analyser.fftSize);
+        let phase = 0;
 
-        const draw = () => {
-          if (!isMounted) return;
-          animationFrameRef.current = requestAnimationFrame(draw);
+        const renderWaveform = () => {
+          if (!analyserRef.current || !canvasRef.current) return;
 
-          analyser.getByteFrequencyData(dataArray);
+          analyserRef.current.getByteTimeDomainData(timeData);
 
           const width = canvas.width;
           const height = canvas.height;
+          const centerY = height / 2;
 
-          ctx.clearRect(0, 0, width, height);
+          canvasCtx.clearRect(0, 0, width, height);
 
-          const barCount = 28;
-          const barWidth = 3;
-          const gap = 3;
-          const totalWidth = barCount * (barWidth + gap) - gap;
-          let startX = (width - totalWidth) / 2;
-
-          for (let i = 0; i < barCount; i++) {
-            // Map index to frequency bin
-            const binIdx = Math.floor((i / barCount) * bufferLength * 0.7);
-            const value = dataArray[binIdx] || 0;
-            const percent = value / 255;
-            const minHeight = 4;
-            const barHeight = Math.max(minHeight, percent * (height - 6));
-
-            const y = (height - barHeight) / 2;
-
-            // Crisp monochrome white to light zinc bars
-            ctx.fillStyle = percent > 0.4 ? '#ffffff' : '#a1a1aa';
-            ctx.beginPath();
-            ctx.roundRect(startX, y, barWidth, barHeight, 2);
-            ctx.fill();
-
-            startX += barWidth + gap;
+          // Calculate average audio amplitude
+          let sum = 0;
+          for (let i = 0; i < timeData.length; i++) {
+            const val = (timeData[i] - 128) / 128;
+            sum += Math.abs(val);
           }
+          const avgAmp = sum / timeData.length;
+          const ampScale = Math.max(0.1, avgAmp * 3.5);
+
+          phase += 0.08;
+
+          // Draw Glowing Oscilloscope Wave 1 (Central Crisp Beam)
+          canvasCtx.beginPath();
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+          canvasCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+          canvasCtx.shadowBlur = 8;
+
+          for (let x = 0; x < width; x++) {
+            const normalizedX = (x / width) * 4 * Math.PI;
+            const wave = Math.sin(normalizedX + phase) * Math.cos(normalizedX * 0.5 - phase);
+            const timeSample = (timeData[Math.floor((x / width) * timeData.length)] - 128) / 128;
+            const y = centerY + (wave * 8 + timeSample * (height * 0.45)) * ampScale;
+
+            if (x === 0) {
+              canvasCtx.moveTo(x, y);
+            } else {
+              canvasCtx.lineTo(x, y);
+            }
+          }
+          canvasCtx.stroke();
+
+          // Draw Secondary Harmonic Wave (Subtle Diffusion Glow)
+          canvasCtx.beginPath();
+          canvasCtx.lineWidth = 1;
+          canvasCtx.strokeStyle = 'rgba(200, 200, 220, 0.4)';
+          canvasCtx.shadowBlur = 0;
+
+          for (let x = 0; x < width; x++) {
+            const normalizedX = (x / width) * 6 * Math.PI;
+            const wave = Math.sin(normalizedX - phase * 1.2);
+            const timeSample = (timeData[Math.floor((x / width) * timeData.length)] - 128) / 128;
+            const y = centerY + (wave * 5 + timeSample * (height * 0.35)) * ampScale;
+
+            if (x === 0) {
+              canvasCtx.moveTo(x, y);
+            } else {
+              canvasCtx.lineTo(x, y);
+            }
+          }
+          canvasCtx.stroke();
+
+          animationFrameRef.current = requestAnimationFrame(renderWaveform);
         };
 
-        draw();
+        renderWaveform();
       } catch (err) {
-        console.warn('Microphone access for visualizer failed:', err);
+        console.error('Audio visualizer error:', err);
       }
-    }
+    };
 
-    initAudio();
+    setupAudio();
 
     return () => {
-      isMounted = false;
-      cleanupAudio();
+      isCancelled = true;
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
     };
   }, [isListening]);
-
-  const cleanupAudio = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-  };
 
   if (!isListening) return null;
 
   return (
-    <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-[#0e0e12] border border-white/20 shadow-lg animate-fade-in mb-2">
-      <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
-        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-        <span>Listening...</span>
+    <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-2xl bg-black/90 border border-zinc-700 shadow-2xl animate-fade-in select-none">
+      <div className="flex items-center gap-2">
+        <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+        <span className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+          <Mic className="w-3.5 h-3.5 text-white" />
+          <span>Voice Live Stream</span>
+        </span>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        width={180}
-        height={24}
-        className="w-[140px] sm:w-[180px] h-[24px]"
-      />
+      <div className="flex-1 max-w-sm sm:max-w-md h-7 relative flex items-center justify-center">
+        <canvas
+          ref={canvasRef}
+          width={380}
+          height={28}
+          className="w-full h-full block"
+        />
+      </div>
 
       <button
-        type="button"
         onClick={onStop}
-        className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-mono transition cursor-pointer"
+        className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition cursor-pointer shadow-sm"
       >
-        Done
+        <Square className="w-3 h-3 fill-black" />
+        <span>Done</span>
       </button>
     </div>
   );

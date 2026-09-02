@@ -144,7 +144,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  // Interactive Panels State
+  // Side-by-Side Interactive Split Panels State
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [canvasTitle, setCanvasTitle] = useState('Artifact');
   const [canvasLanguage, setCanvasLanguage] = useState('rust');
@@ -152,7 +152,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
   // Split Web Browser Panel State
   const [isWebBrowserOpen, setIsWebBrowserOpen] = useState(false);
-  const [webBrowserInitialQuery, setWebBrowserInitialQuery] = useState('https://duckduckgo.com');
+  const [webBrowserInitialQuery, setWebBrowserInitialQuery] = useState('DeepSeek R1 reasoning architecture');
 
   // Leaderboard & News Modals
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
@@ -380,13 +380,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     setCanvasLanguage(language);
     setCanvasContent(code);
     setIsCanvasOpen(true);
+    setIsWebBrowserOpen(false); // Clean side-by-side management
   };
 
   // Open Split Web Browser with Query
   const handleOpenWebBrowser = (query?: string) => {
     if (query) setWebBrowserInitialQuery(query);
     setIsWebBrowserOpen(true);
+    setIsCanvasOpen(false); // Clean side-by-side management
     setIsToolsMenuOpen(false);
+  };
+
+  // Paste Interceptor for large payloads & code files
+  const handleTextareaPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (pastedText && pastedText.length > 800) {
+      e.preventDefault();
+      const lineCount = pastedText.split('\n').length;
+      const firstLine = pastedText.trim().split('\n')[0].slice(0, 30);
+      const fileName = `pasted_snippet_${Date.now().toString().slice(-4)}.txt`;
+
+      setAttachments((prev) => [
+        ...prev,
+        {
+          name: `${fileName} (${lineCount} lines, ${(pastedText.length / 1024).toFixed(1)} KB)`,
+          size: pastedText.length,
+          type: 'text/plain',
+          content: pastedText,
+        },
+      ]);
+
+      if (!input.trim()) {
+        setInput(`Analyze the attached code/document: "${firstLine}..."`);
+      }
+    }
   };
 
   // Send Prompt
@@ -464,13 +491,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         setIsThinkingActive(false);
         accumulatedContent += chunk;
         setStreamingContent(accumulatedContent);
+
+        // Autonomous AI Tool Execution (Open Browser / Open Canvas dynamically)
+        if (accumulatedContent.includes('[TOOL:OPEN_BROWSER query="')) {
+          const match = accumulatedContent.match(/\[TOOL:OPEN_BROWSER query="([^"]+)"\]/);
+          if (match && match[1]) {
+            handleOpenWebBrowser(match[1]);
+          }
+        }
       },
       (metrics) => {
         const duration = Date.now() - startGenTime;
+        
+        // Clean any tool markup if present
+        const cleanContent = accumulatedContent
+          .replace(/\[TOOL:OPEN_BROWSER query="[^"]+"\]/g, '')
+          .replace(/\[TOOL:SHOW_LEADERBOARD\]/g, '')
+          .replace(/\[TOOL:SHOW_NEWS\]/g, '');
+
         const assistantMessage: Message = {
           id: 'msg-' + Date.now() + '-ai',
           role: 'assistant',
-          content: accumulatedContent,
+          content: cleanContent,
           reasoning: accumulatedReasoning || undefined,
           thinkingDurationMs: accumulatedReasoning ? duration : undefined,
           metrics,
@@ -916,7 +958,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         </div>
       </aside>
 
-      {/* ================= MAIN CHAT FEED ================= */}
+      {/* ================= MAIN CHAT FEED (FLEXES BESIDE CANVAS / BROWSER) ================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         
         {/* CLEAN, MINIMAL HEADER */}
@@ -1252,7 +1294,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         <footer className="p-3 sm:p-5 bg-gradient-to-t from-[#000000] via-[#000000] to-transparent z-20 flex-shrink-0">
           <div className="max-w-3xl mx-auto space-y-2 relative">
             
-            {/* Live Audio Visualizer Graph when listening */}
+            {/* Live Audio Visualizer Oscilloscope Graph when listening */}
             <VoiceVisualizer isListening={isListening} onStop={toggleVoiceInput} />
 
             {/* Tools Menu Popover */}
@@ -1300,6 +1342,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   type="button"
                   onClick={() => {
                     setIsCanvasOpen(true);
+                    setIsWebBrowserOpen(false);
                     setIsToolsMenuOpen(false);
                   }}
                   className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
@@ -1360,7 +1403,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300"
                   >
                     <Paperclip className="w-3 h-3 text-zinc-400" />
-                    <span>{att.name}</span>
+                    <span className="truncate max-w-[200px]">{att.name}</span>
                     <button
                       onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
                       className="text-zinc-500 hover:text-white transition cursor-pointer"
@@ -1379,6 +1422,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 ref={textareaRef}
                 value={input}
                 onChange={handleInputChange}
+                onPaste={handleTextareaPaste}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1389,7 +1433,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   !currentUser
                     ? 'Sign in with Google to begin...'
                     : providerStatus.connected
-                    ? `Message ${selectedModel.name}...`
+                    ? `Message ${selectedModel.name}... (Paste code or files supported)`
                     : `Configure provider & API key in Settings to begin...`
                 }
                 rows={1}
@@ -1522,30 +1566,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
       </div>
 
-      {/* ================= SPLIT WEB BROWSER PANEL ================= */}
-      <WebBrowserPanel
-        isOpen={isWebBrowserOpen}
-        onClose={() => setIsWebBrowserOpen(false)}
-        initialQuery={webBrowserInitialQuery}
-        onInsertIntoPrompt={(snippet) => {
-          setInput((prev) => (prev ? prev + '\n' + snippet : snippet));
-          textareaRef.current?.focus();
-        }}
-      />
+      {/* ================= SIDE-BY-SIDE SPLIT WEB BROWSER PANEL (NO OVERLAP) ================= */}
+      {isWebBrowserOpen && (
+        <WebBrowserPanel
+          isOpen={isWebBrowserOpen}
+          onClose={() => setIsWebBrowserOpen(false)}
+          initialQuery={webBrowserInitialQuery}
+          onInsertIntoPrompt={(snippet) => {
+            setInput((prev) => (prev ? prev + '\n' + snippet : snippet));
+            textareaRef.current?.focus();
+          }}
+        />
+      )}
 
-      {/* ================= ARTIFACT CANVAS PANEL ================= */}
-      <CanvasPanel
-        isOpen={isCanvasOpen}
-        onClose={() => setIsCanvasOpen(false)}
-        title={canvasTitle}
-        language={canvasLanguage}
-        content={canvasContent}
-        onChangeContent={setCanvasContent}
-        onInsertIntoChat={(text) => {
-          setInput((prev) => (prev ? prev + '\n\n' + text : text));
-          setIsCanvasOpen(false);
-        }}
-      />
+      {/* ================= SIDE-BY-SIDE ARTIFACT CANVAS PANEL (NO OVERLAP) ================= */}
+      {isCanvasOpen && (
+        <CanvasPanel
+          isOpen={isCanvasOpen}
+          onClose={() => setIsCanvasOpen(false)}
+          title={canvasTitle}
+          language={canvasLanguage}
+          content={canvasContent}
+          onChangeContent={setCanvasContent}
+          onInsertIntoChat={(text) => {
+            setInput((prev) => (prev ? prev + '\n\n' + text : text));
+            setIsCanvasOpen(false);
+          }}
+        />
+      )}
 
       {/* ================= LEADERBOARD & BENCHMARKS MODAL ================= */}
       <LeaderboardModal
