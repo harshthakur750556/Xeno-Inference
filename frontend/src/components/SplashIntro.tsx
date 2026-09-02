@@ -1,22 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { ButterflySvg } from './ButterflySvg';
-import { Terminal, Cpu, Zap, CheckCircle2, ChevronRight } from 'lucide-react';
+import { XenoLogo } from './XenoLogo';
+import { ChevronRight } from 'lucide-react';
 
 interface SplashIntroProps {
   onComplete: () => void;
 }
 
-const COMMAND_LOGS = [
-  { text: '[KERNEL] Bootstrapping Xeno Neural Architecture v4.2...', delay: 100 },
-  { text: '[VRAM] Allocating 32GB dynamic KV-Cache & Multi-Head Attention...', delay: 700 },
-  { text: '[QUANT] Calibrating BF16 / FP8 Tensor Core weights...', delay: 1400 },
-  { text: '[BRIDGE] Establishing zero-copy IPC channel with Rust daemon...', delay: 2100 },
-  { text: '[ONLINE] Neural Inference Pipeline Active. Ready for input.', delay: 2600 },
+const STREAM_COMMANDS = [
+  '[KERNEL] Initializing Xeno Neural Architecture v4.2...',
+  '[VRAM] Allocating 32GB dynamic KV-Cache & Multi-Head Attention...',
+  '[QUANT] Calibrating BF16 / FP8 Tensor Core weights...',
+  '[BRIDGE] Establishing zero-copy IPC channel with Rust Axum daemon...',
+  '[SYNAPSE] Initializing 128k context sparse attention kernel...',
+  '[TENSOR] Compiling SIMD vector pipelines for zero-latency inference...',
+  '[ONLINE] Neural Inference Engine Active. Ready for input.',
 ];
 
 export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
-  const [activeLogIndex, setActiveLogIndex] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -30,11 +33,12 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       const currentProgress = Math.min(Math.floor((elapsed / duration) * 100), 100);
       setProgress(currentProgress);
 
-      if (elapsed > 2600) setActiveLogIndex(4);
-      else if (elapsed > 2100) setActiveLogIndex(3);
-      else if (elapsed > 1400) setActiveLogIndex(2);
-      else if (elapsed > 700) setActiveLogIndex(1);
-      else setActiveLogIndex(0);
+      // Advance through commands proportionally
+      const step = Math.min(
+        Math.floor((elapsed / duration) * STREAM_COMMANDS.length),
+        STREAM_COMMANDS.length - 1
+      );
+      setActiveStep(step);
 
       if (elapsed >= duration - 250) {
         setIsFadingOut(true);
@@ -44,12 +48,25 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         clearInterval(interval);
         setTimeout(() => {
           onComplete();
-        }, 150);
+        }, 120);
       }
-    }, 25);
+    }, 20);
 
     return () => clearInterval(interval);
   }, [onComplete]);
+
+  // Derive exactly 3 visible lines (current, previous, older)
+  const visibleIndices: number[] = [];
+  if (activeStep >= 2) {
+    visibleIndices.push(activeStep - 2);
+    visibleIndices.push(activeStep - 1);
+    visibleIndices.push(activeStep);
+  } else if (activeStep === 1) {
+    visibleIndices.push(0);
+    visibleIndices.push(1);
+  } else {
+    visibleIndices.push(0);
+  }
 
   return (
     <div
@@ -57,23 +74,14 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         isFadingOut ? 'opacity-0 scale-98 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
-      {/* Subtle Monochrome Ambient Vignette */}
-      <div className="absolute inset-0 pointer-events-none opacity-20">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
-          }}
-        />
-      </div>
-
-      {/* Top Header Controls (Skip Button & 3s Timer Badge) */}
-      <div className="relative z-20 flex items-center justify-between px-8 py-6 w-full max-w-7xl mx-auto">
+      {/* Top Header Controls (Logo, Timer & Skip Button) */}
+      <div className="relative z-20 flex items-center justify-between px-8 sm:px-12 py-8 w-full max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-xs font-mono text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            <span>XENO-CORE // RUST BACKEND</span>
+          <XenoLogo size={24} />
+          <div className="flex items-center gap-2 text-[11px] font-mono tracking-widest text-zinc-400">
+            <span>XENO-CORE</span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-300">RUST AXUM</span>
           </div>
         </div>
 
@@ -83,118 +91,93 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
           </div>
           <button
             onClick={onComplete}
-            className="group flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/15 border border-white/15 text-xs font-medium text-zinc-200 transition-all cursor-pointer backdrop-blur-md"
+            className="group flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.12] border border-white/10 text-xs font-medium text-zinc-200 transition-all cursor-pointer backdrop-blur-md"
           >
-            <span>Skip Intro</span>
+            <span>Skip</span>
             <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
       </div>
 
       {/* MAIN SPLIT PAGE DESIGN - PURE BLACK & WHITE AESTHETIC */}
-      <main className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-center w-full max-w-7xl mx-auto px-6 sm:px-12 gap-8 lg:gap-16">
+      <main className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-center w-full max-w-7xl mx-auto px-8 sm:px-12 gap-10 lg:gap-16">
         
-        {/* LEFT SIDE: App Name (XENO in Roman, INFERENCE in Calligraphy) + Command Animation with Half Blurry Gradient */}
-        <div className="flex flex-col justify-center items-start space-y-7 max-w-xl">
+        {/* LEFT SIDE: App Name + Unboxed 3-Line Disappearing Command Stream */}
+        <div className="flex flex-col justify-center items-start space-y-8 max-w-xl">
           
           {/* APPLICATION TITLE */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1">
               {/* XENO in Roman Serif Font in pure white */}
-              <h1 className="font-roman text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[0.22em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.25)] transition-all duration-700">
+              <h1 className="font-roman text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[0.22em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all duration-700">
                 XENO
               </h1>
 
               {/* INFERENCE in Calligraphy Font with graceful entrance transition */}
-              <span className="font-calligraphy text-5xl sm:text-6xl md:text-7xl font-normal text-zinc-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-calligraphy">
+              <span className="font-calligraphy text-5xl sm:text-6xl md:text-7xl font-normal text-zinc-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.25)] animate-calligraphy">
                 Inference
               </span>
             </div>
 
-            <p className="text-xs sm:text-sm font-light text-zinc-400 tracking-[0.3em] uppercase pl-1">
+            <p className="text-xs sm:text-sm font-light text-zinc-400 tracking-[0.35em] uppercase pl-1">
               High-Throughput Neural AI Acceleration
             </p>
           </div>
 
-          {/* COMMAND ANIMATION IN HALF BLURRY GRADIENT BLENDED IN BACKGROUND */}
-          <div className="w-full relative group">
-            {/* Blurry Monochrome Gradient Backdrop blended softly into pure black */}
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent blur-xl opacity-70 transition duration-700 pointer-events-none" />
-            
-            {/* Glassmorphic Container */}
-            <div className="relative rounded-2xl bg-zinc-950/80 backdrop-blur-2xl border border-white/10 p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.9)] overflow-hidden">
-              
-              {/* Terminal Title Bar */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
-                  <span className="ml-2 text-xs font-mono text-zinc-400 flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-zinc-300" />
-                    xeno-tensor-init.sh
-                  </span>
-                </div>
+          {/* UNBOXED 3-LINE DISAPPEARING COMMAND STREAM (NOT IN A BOX) */}
+          <div className="w-full relative pt-2">
+            {/* Soft blurry gradient blended into black background */}
+            <div className="absolute -inset-4 bg-radial from-white/[0.04] to-transparent blur-2xl pointer-events-none" />
 
-                <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
-                  <Cpu className="w-3.5 h-3.5 text-zinc-300" />
-                  <span>CUDA / AVX-512</span>
-                </div>
-              </div>
+            {/* Exactly 3 Lines Stream with Disappearing Animation */}
+            <div className="relative space-y-2.5 font-mono text-xs min-h-[96px] flex flex-col justify-end">
+              {visibleIndices.map((idx, pos) => {
+                const isNewest = pos === visibleIndices.length - 1;
+                const isOldest = pos === 0 && visibleIndices.length === 3;
+                const isMiddle = pos === 1 && visibleIndices.length === 3;
 
-              {/* Real-Time Animated Command Logs */}
-              <div className="space-y-1.5 font-mono text-xs text-zinc-300 min-h-[105px]">
-                {COMMAND_LOGS.map((log, index) => {
-                  const isVisible = index <= activeLogIndex;
-                  const isCurrent = index === activeLogIndex;
-                  if (!isVisible) return null;
+                let opacityClass = 'opacity-100 text-white font-medium';
+                if (isOldest) opacityClass = 'opacity-30 text-zinc-500 scale-[0.98]';
+                else if (isMiddle) opacityClass = 'opacity-65 text-zinc-400';
 
-                  return (
-                    <div
-                      key={index}
-                      className={`flex items-start gap-2 transition-all duration-300 ${
-                        isCurrent ? 'text-white font-medium' : 'text-zinc-400 opacity-75'
-                      }`}
-                    >
-                      <span className="text-zinc-500 select-none">&gt;</span>
-                      <span className="flex-1 break-all">{log.text}</span>
-                      {isCurrent && (
-                        <span className="inline-block w-2 h-3.5 bg-white animate-pulse select-none" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* ANIMATED PROGRESS BAR IN SHARP MONOCHROME */}
-              <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-zinc-400 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-zinc-300" />
-                    BOOTSTRAP STATUS
-                  </span>
-                  <span className="font-semibold text-white tabular-nums">
-                    {progress}% {progress === 100 ? 'COMPLETE' : 'LOADING'}
-                  </span>
-                </div>
-
-                {/* Progress Track & Fill */}
-                <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-white/10">
+                return (
                   <div
-                    className="h-full rounded-full bg-white transition-all duration-75 ease-out shadow-[0_0_10px_rgba(255,255,255,0.4)]"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+                    key={idx}
+                    className={`flex items-center gap-2.5 transition-all duration-300 transform ${opacityClass}`}
+                  >
+                    <span className="text-zinc-500 select-none text-[11px]">&gt;</span>
+                    <span className="truncate">{STREAM_COMMANDS[idx]}</span>
+                    {isNewest && (
+                      <span className="inline-block w-1.5 h-3 bg-white animate-pulse select-none ml-0.5" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* MINIMALIST PROGRESS HAIRLINE BAR */}
+            <div className="mt-5 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-zinc-500 tracking-wider">BOOTSTRAP SEQUENCE</span>
+                <span className="font-semibold text-white tabular-nums tracking-wider">
+                  {progress}%
+                </span>
               </div>
 
+              {/* Ultra-clean hairline track */}
+              <div className="h-[2px] w-full bg-zinc-900 overflow-hidden">
+                <div
+                  className="h-full bg-white transition-all duration-75 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
+
           </div>
 
-          {/* Bottom Badges */}
-          <div className="flex items-center gap-3 text-xs text-zinc-500 font-mono">
-            <span className="flex items-center gap-1 text-zinc-400">
-              <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Rust Axum Engine
-            </span>
+          {/* Minimalist Feature Accents */}
+          <div className="flex items-center gap-4 text-xs text-zinc-500 font-mono tracking-wide pt-1">
+            <span className="text-zinc-400">Rust Axum Core</span>
             <span>•</span>
             <span>Zero-Latency SSE</span>
             <span>•</span>
@@ -203,20 +186,20 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
         </div>
 
-        {/* RIGHT SIDE: Exact Sharp Vector Butterfly (Static on Black Background) */}
+        {/* RIGHT SIDE: Exact Razor-Sharp Vector Butterfly (Static on Black Background) */}
         <div className="flex flex-col items-center justify-center relative select-none">
-          {/* Subtle soft white ambient glow behind butterfly */}
-          <div className="absolute w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-white/[0.03] blur-3xl pointer-events-none" />
+          {/* Subtle soft white ambient glow */}
+          <div className="absolute w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-white/[0.02] blur-3xl pointer-events-none" />
           
           {/* Razor Sharp Original Vector Butterfly */}
           <ButterflySvg size={420} />
 
           {/* Slogan below butterfly */}
           <div className="mt-4 text-center space-y-1">
-            <div className="text-xs uppercase font-mono tracking-[0.25em] text-zinc-400">
+            <div className="text-[11px] uppercase font-mono tracking-[0.3em] text-zinc-400">
               Neural AI Synthesis
             </div>
-            <div className="text-[11px] text-zinc-600 font-mono">
+            <div className="text-[10px] text-zinc-600 font-mono">
               Designed with TypeScript & Rust
             </div>
           </div>
@@ -225,7 +208,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       </main>
 
       {/* Bottom Footer Accent */}
-      <div className="relative z-10 px-8 py-4 w-full max-w-7xl mx-auto flex items-center justify-between text-[11px] font-mono text-zinc-600 border-t border-white/5">
+      <div className="relative z-10 px-8 sm:px-12 py-6 w-full max-w-7xl mx-auto flex items-center justify-between text-[11px] font-mono text-zinc-600">
         <span>XENO INFERENCE © 2026</span>
         <span>LATENCY: &lt; 0.4ms // TTFT: 118ms</span>
       </div>

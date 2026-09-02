@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
+import { XenoLogo } from './XenoLogo';
 import { ThinkingBlock } from './ThinkingBlock';
 import { CodeBlock } from './CodeBlock';
 import { SettingsModal } from './SettingsModal';
@@ -353,7 +354,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
       >
         <div className="p-4 space-y-4 flex flex-col h-full overflow-y-auto">
           <div className="flex items-center gap-2.5 px-2 py-1">
-            <ButterflySvg size={32} />
+            <XenoLogo size={24} />
             <div className="flex flex-col">
               <span className="font-roman text-sm font-bold tracking-wider text-white">
                 XENO
@@ -571,10 +572,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
                 }`}
               >
                 {!isUser && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 p-0.5 shadow-md">
-                    <div className="w-full h-full bg-black rounded-[10px] flex items-center justify-center">
-                      <ButterflySvg size={20} />
-                    </div>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1 shadow-sm">
+                    <XenoLogo size={18} />
                   </div>
                 )}
 
@@ -664,10 +663,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onReplayIntro }) =
 
           {isStreaming && (
             <div className="flex gap-3 sm:gap-4 max-w-4xl mx-auto justify-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 p-0.5 shadow-md">
-                <div className="w-full h-full bg-black rounded-[10px] flex items-center justify-center">
-                  <ButterflySvg size={20} />
-                </div>
+              <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1 shadow-sm">
+                <XenoLogo size={18} />
               </div>
 
               <div className="flex flex-col space-y-2 max-w-[85%] sm:max-w-[78%]">
