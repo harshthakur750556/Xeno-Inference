@@ -12,7 +12,6 @@ import {
   Copy,
   Check,
   ChevronDown,
-  Terminal,
   Zap,
   Trash2,
   Edit2,
@@ -22,8 +21,8 @@ import {
   Sparkles,
   X,
   Globe,
-  Layers,
   Key,
+  PanelLeft,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -155,18 +154,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [providerStatus, setProviderStatus] = useState<{
     connected: boolean;
     label: string;
-    pingMs?: number;
   }>({
     connected: false,
     label: 'Checking connection...',
   });
 
-  // Modals & Navigation
+  // Modals & Navigation (Sidebar starts closed on mobile, open on desktop)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -214,7 +212,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         if (isMounted) {
           setProviderStatus({
             connected: online,
-            label: online ? 'RUST DAEMON (Port 3001)' : 'RUST DAEMON (Offline)',
+            label: online ? 'Rust Daemon (3001)' : 'Rust Engine (Offline)',
           });
         }
         return;
@@ -226,12 +224,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           if (isMounted) {
             setProviderStatus({
               connected: res.ok,
-              label: res.ok ? 'OLLAMA (localhost:11434)' : 'OLLAMA (Offline)',
+              label: res.ok ? 'Ollama (Local)' : 'Ollama (Offline)',
             });
           }
         } catch {
           if (isMounted) {
-            setProviderStatus({ connected: false, label: 'OLLAMA (Offline)' });
+            setProviderStatus({ connected: false, label: 'Ollama (Offline)' });
           }
         }
         return;
@@ -244,7 +242,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           connected: hasKey,
           label: hasKey
             ? `${config.provider.toUpperCase()} (Connected)`
-            : `${config.provider.toUpperCase()} (API Key Required)`,
+            : `${config.provider.toUpperCase()} (Key Required)`,
         });
       }
     };
@@ -289,7 +287,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         setConfig((prev) => ({ ...prev, model: target.model }));
       }
     }
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
   };
 
   // Create New Session
@@ -299,7 +297,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     setSessions(getStoredSessions());
     setActiveSessionIdState(newSession.id);
     setMessages([]);
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
   };
 
   // Delete Session
@@ -443,7 +441,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       },
       (err) => {
         console.error('Inference error:', err);
-        const errorContent = `**Connection Error:** ${err.message}\n\nPlease click **Settings** (gear icon in top right) to configure your **${config.provider.toUpperCase()}** API Key or switch providers.`;
+        const errorContent = `**Connection Error:** ${err.message}\n\nPlease click **Settings** at the bottom of the sidebar to configure your **${config.provider.toUpperCase()}** API Key or choose another provider.`;
 
         const assistantMessage: Message = {
           id: 'msg-' + Date.now() + '-ai-error',
@@ -647,7 +645,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       {isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-30 md:hidden transition-opacity"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-30 lg:hidden transition-opacity"
         />
       )}
 
@@ -656,8 +654,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         className={
           (isSidebarOpen
             ? 'translate-x-0 w-72 md:w-64 lg:w-72'
-            : '-translate-x-full md:translate-x-0 md:w-0') +
-          ' fixed inset-y-0 left-0 md:relative z-40 transition-all duration-300 ease-in-out bg-[#08080a] border-r border-zinc-800/80 flex flex-col justify-between overflow-hidden flex-shrink-0'
+            : '-translate-x-full lg:translate-x-0 lg:w-0') +
+          ' fixed inset-y-0 left-0 lg:relative z-40 transition-all duration-300 ease-in-out bg-[#08080a] border-r border-zinc-800/80 flex flex-col justify-between overflow-hidden flex-shrink-0'
         }
       >
         <div className="p-3.5 space-y-3 flex flex-col h-full overflow-hidden">
@@ -678,7 +676,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="p-1 text-zinc-500 hover:text-white md:hidden transition cursor-pointer"
+              className="p-1 text-zinc-500 hover:text-white transition cursor-pointer"
+              title="Close sidebar"
             >
               <X className="w-4 h-4" />
             </button>
@@ -776,16 +775,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             })}
           </div>
 
-          {/* Provider Status Tag in Sidebar */}
-          <div
-            onClick={() => setIsSettingsOpen(true)}
-            className="mt-auto pt-2.5 border-t border-zinc-800/80 flex items-center justify-between text-[10px] font-mono text-zinc-400 px-1 cursor-pointer hover:text-white transition"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span className="truncate max-w-[160px]">{providerStatus.label}</span>
+          {/* Bottom Area: Settings & Provider Configuration */}
+          <div className="mt-auto pt-2.5 border-t border-zinc-800/80 space-y-1">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full flex items-center justify-between p-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:text-white transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Sliders className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Settings & API Keys</span>
+              </div>
+              <span className={`w-2 h-2 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            </button>
+
+            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 px-2 py-0.5">
+              <span>{config.provider.toUpperCase()}</span>
+              <span>{providerStatus.connected ? 'ONLINE' : 'CONFIG NEEDED'}</span>
             </div>
-            <span className="text-zinc-600 hover:text-zinc-300">Config ↗</span>
           </div>
 
         </div>
@@ -794,17 +800,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       {/* ================= MAIN CHAT FEED ================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         
-        {/* CLEAN, MINIMAL HEADER */}
+        {/* CLEAN, MINIMAL HEADER (Claude & ChatGPT Style - No Canvas, No Settings in Header) */}
         <header className="h-14 border-b border-zinc-800/60 bg-[#000000]/80 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 flex-shrink-0">
           
           {/* Left: Sidebar Toggle & Model Selector */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer flex-shrink-0"
-              title="Toggle Sidebar (Ctrl+B)"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition cursor-pointer flex items-center gap-1.5"
+              title="Toggle sidebar (Ctrl+B)"
             >
-              <Terminal className="w-4 h-4 text-zinc-300" />
+              <PanelLeft className="w-4 h-4 text-zinc-300" />
             </button>
 
             {/* Model Selector Dropdown */}
@@ -824,7 +830,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               {isModelDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
                   <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-zinc-500 tracking-wider">
-                    Select Neural Architecture
+                    Select Model
                   </div>
                   {AVAILABLE_MODELS.map((model) => (
                     <button
@@ -854,38 +860,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 </div>
               )}
             </div>
-
-            {/* Provider Pill */}
-            <div
-              onClick={() => setIsSettingsOpen(true)}
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400 hover:text-white cursor-pointer transition"
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${providerStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span>{config.provider.toUpperCase()}</span>
-            </div>
           </div>
 
-          {/* Right: Canvas Toggle & Settings */}
+          {/* Right: Quick New Chat Shortcut */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
-              onClick={() => setIsCanvasOpen(!isCanvasOpen)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium transition cursor-pointer ${
-                isCanvasOpen
-                  ? 'bg-white text-black font-semibold'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-              }`}
-              title="Artifact Canvas"
+              onClick={handleCreateNewSession}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
+              title="New Chat"
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Canvas</span>
-            </button>
-
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
-              title="Inference Parameters & API Keys"
-            >
-              <Sliders className="w-4 h-4 text-zinc-300" />
+              <Plus className="w-4 h-4" />
             </button>
           </div>
 
@@ -897,7 +881,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           {/* Welcome Screen */}
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-6 my-auto select-none py-6">
-              <div className="w-full max-w-[150px] sm:max-w-[200px] aspect-[1104/1380]">
+              <div className="w-full max-w-[140px] sm:max-w-[180px] aspect-[1104/1380]">
                 <ButterflySvg className="w-full h-full" />
               </div>
 
@@ -958,6 +942,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   (isUser ? 'justify-end' : 'justify-start')
                 }
               >
+                {/* Assistant Message (Seamless Flow, Unboxed) */}
                 {!isUser ? (
                   <div className="flex gap-3 sm:gap-4 max-w-full w-full">
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center p-1 mt-1">
@@ -1009,7 +994,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                             {speakingMessageId === msg.id ? (
                               <VolumeX className="w-3 h-3" />
                             ) : (
-                              <Volume2 className="w-3 h-3" />
+                              <Volume2 className="w-3.5 h-3.5" />
                             )}
                           </button>
 
@@ -1025,6 +1010,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     </div>
                   </div>
                 ) : (
+                  /* User Message: Sleek Capsule with Full Markdown & Math Rendering */
                   <div className="flex flex-col items-end space-y-1.5 max-w-[85%] sm:max-w-[75%]">
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-1">
@@ -1057,15 +1043,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                           </button>
                           <button
                             onClick={() => handleSaveEditMessage(msg.id)}
-                            className="px-3 py-1 rounded bg-white text-black text-[11px] font-semibold"
+                            className="px-3 py-1 rounded bg-white text-black text-[11px] font-semibold cursor-pointer"
                           >
                             Save
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-3xl px-4 py-2.5 bg-zinc-900 border border-zinc-800 text-zinc-100 text-xs sm:text-[13.5px] leading-relaxed select-text shadow-sm">
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <div className="rounded-2xl px-4 py-2.5 bg-zinc-800/80 border border-zinc-700/60 text-zinc-100 text-xs sm:text-[13.5px] leading-relaxed select-text shadow-sm">
+                        <MarkdownRenderer content={msg.content} onOpenCanvas={handleOpenInCanvas} />
                       </div>
                     )}
 
@@ -1077,7 +1063,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                             setEditMessageContent(msg.content);
                           }}
                           className="hover:text-white transition p-0.5"
-                          title="Edit message"
+                          title="Edit question"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -1182,7 +1168,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder={"Message " + selectedModel.name + " (" + config.provider.toUpperCase() + ")..."}
+                placeholder={"Message " + selectedModel.name + "..."}
                 rows={1}
                 className="w-full px-3 py-1.5 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-40 overflow-y-auto leading-relaxed"
                 style={{ minHeight: '38px' }}
