@@ -61,11 +61,19 @@ export interface InferenceConfig {
   model: string;
   temperature: number;
   topP: number;
+  topK?: number;
+  minP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  seed?: number;
+  contextStrategy?: 'rolling' | 'summary' | 'truncate';
   maxTokens: number;
   systemPrompt: string;
   stream: boolean;
   enableReasoning: boolean;
   webSearch?: boolean;
+  webSearchEngine?: 'tavily' | 'serper' | 'duckduckgo';
+  streamChunkDelayMs?: number;
 }
 
 export interface TelemetryData {

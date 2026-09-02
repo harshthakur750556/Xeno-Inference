@@ -5,7 +5,6 @@ import {
   Sliders,
   Plus,
   Mic,
-  MicOff,
   Paperclip,
   Volume2,
   VolumeX,
@@ -23,6 +22,7 @@ import {
   Globe,
   Key,
   PanelLeft,
+  AlertTriangle,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -30,6 +30,7 @@ import { ThinkingBlock } from './ThinkingBlock';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { CanvasPanel } from './CanvasPanel';
 import { SettingsModal } from './SettingsModal';
+import { VoiceVisualizer } from './VoiceVisualizer';
 import type {
   Message,
   InferenceConfig,
@@ -159,7 +160,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     label: 'Checking connection...',
   });
 
-  // Modals & Navigation (Sidebar starts closed on mobile, open on desktop)
+  // Modals & Navigation
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
@@ -191,12 +192,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     }
   }, []);
 
-  // Keyboard shortcut Ctrl+B or Cmd+B to toggle sidebar
+  // Keyboard shortcuts: Ctrl+B / Cmd+B (Sidebar), Ctrl+, / Cmd+, (Settings)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setIsSidebarOpen((prev) => !prev);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -346,6 +351,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
 
+    if (!providerStatus.connected) {
+      setIsSettingsOpen(true);
+      return;
+    }
+
     let currentSessionId = activeSessionId;
     if (!currentSessionId) {
       const newSess = createSession(config.model, promptText.slice(0, 32));
@@ -441,7 +451,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       },
       (err) => {
         console.error('Inference error:', err);
-        const errorContent = `**Connection Error:** ${err.message}\n\nPlease click **Settings** at the bottom of the sidebar to configure your **${config.provider.toUpperCase()}** API Key or choose another provider.`;
+        const errorContent = `**Connection Error:** ${err.message}\n\nPlease click **Settings** to configure your **${config.provider.toUpperCase()}** API Key.`;
 
         const assistantMessage: Message = {
           id: 'msg-' + Date.now() + '-ai-error',
@@ -561,8 +571,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.lang = 'en-US';
 
       recognition.onstart = () => setIsListening(true);
@@ -570,8 +580,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       recognition.onerror = () => setIsListening(false);
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            setInput((prev) => (prev ? prev + ' ' + event.results[i][0].transcript : event.results[i][0].transcript));
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
       };
 
       recognition.start();
@@ -800,10 +816,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       {/* ================= MAIN CHAT FEED ================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         
-        {/* CLEAN, MINIMAL HEADER (Claude & ChatGPT Style - No Canvas, No Settings in Header) */}
+        {/* CLEAN, MINIMAL HEADER */}
         <header className="h-14 border-b border-zinc-800/60 bg-[#000000]/80 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 flex-shrink-0">
           
-          {/* Left: Sidebar Toggle & Model Selector */}
+          {/* Left: Sidebar Toggle & Model / Provider Selector */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -813,24 +829,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               <PanelLeft className="w-4 h-4 text-zinc-300" />
             </button>
 
-            {/* Model Selector Dropdown */}
+            {/* Model / Provider Selector */}
             <div className="relative min-w-0">
-              <button
-                type="button"
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                className="flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-zinc-900 border border-transparent hover:border-zinc-800 text-xs font-medium transition cursor-pointer truncate"
-              >
-                <span className="font-semibold text-zinc-100 truncate">{selectedModel.name}</span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10 flex-shrink-0">
-                  {selectedModel.badge}
-                </span>
-                <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
-              </button>
+              {providerStatus.connected ? (
+                <button
+                  type="button"
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-zinc-900 border border-transparent hover:border-zinc-800 text-xs font-medium transition cursor-pointer truncate"
+                >
+                  <span className="font-semibold text-zinc-100 truncate">{selectedModel.name}</span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10 flex-shrink-0">
+                    {selectedModel.badge}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-amber-950/30 hover:bg-amber-950/50 border border-amber-500/30 text-amber-300 text-xs font-medium transition cursor-pointer"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Connect Provider</span>
+                </button>
+              )}
 
-              {isModelDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
+              {isModelDropdownOpen && providerStatus.connected && (
+                <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 max-h-[50vh] overflow-y-auto rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
                   <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-zinc-500 tracking-wider">
-                    Select Model
+                    Select Model ({config.provider.toUpperCase()})
                   </div>
                   {AVAILABLE_MODELS.map((model) => (
                     <button
@@ -878,15 +905,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         {/* ================= MESSAGE STREAM ================= */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 max-w-4xl mx-auto w-full">
           
-          {/* Welcome Screen */}
+          {/* Welcome Screen (Never clipped, ample header breathing room) */}
           {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-6 my-auto select-none py-6">
-              <div className="w-full max-w-[140px] sm:max-w-[180px] aspect-[1104/1380]">
-                <ButterflySvg className="w-full h-full" />
+            <div className="flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-4 sm:space-y-5 my-auto select-none py-2 sm:py-4">
+              <div className="w-24 sm:w-32 md:w-36 aspect-[1104/1380] mx-auto flex-shrink-0 relative">
+                <ButterflySvg className="w-full h-full object-contain" />
               </div>
 
               <div className="space-y-1 px-2">
-                <div className="flex items-baseline justify-center gap-2.5">
+                <div className="flex items-baseline justify-center gap-2">
                   <span className="font-roman text-3xl sm:text-4xl font-extrabold tracking-widest text-white">
                     XENO
                   </span>
@@ -894,22 +921,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     Inference
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-                  Real-time neural token stream connected to {selectedModel.name} via {config.provider.toUpperCase()}.
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                  {providerStatus.connected
+                    ? `Ready for input using ${selectedModel.name} on ${config.provider.toUpperCase()}.`
+                    : 'Connect your API key or local Ollama / Rust engine to begin.'}
                 </p>
 
                 {!providerStatus.connected && (
-                  <div
+                  <button
                     onClick={() => setIsSettingsOpen(true)}
-                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono cursor-pointer hover:bg-amber-950/50 transition"
+                    className="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono cursor-pointer hover:bg-amber-950/50 transition"
                   >
                     <Key className="w-3.5 h-3.5" />
-                    <span>API Key Required • Click here to configure {config.provider.toUpperCase()}</span>
-                  </div>
+                    <span>Configure {config.provider.toUpperCase()} API Key</span>
+                  </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full pt-1">
                 {STARTER_PROMPTS.map((item, idx) => (
                   <button
                     key={idx}
@@ -1010,7 +1039,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     </div>
                   </div>
                 ) : (
-                  /* User Message: Sleek Capsule with Full Markdown & Math Rendering */
+                  /* User Message: Sleek Capsule with Full Markdown Rendering */
                   <div className="flex flex-col items-end space-y-1.5 max-w-[85%] sm:max-w-[75%]">
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-1">
@@ -1113,6 +1142,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         <footer className="p-3 sm:p-5 bg-gradient-to-t from-[#000000] via-[#000000] to-transparent z-20 flex-shrink-0">
           <div className="max-w-3xl mx-auto space-y-2 relative">
             
+            {/* Live Audio Visualizer Graph when listening */}
+            <VoiceVisualizer isListening={isListening} onStop={toggleVoiceInput} />
+
             {/* Slash Commands Menu */}
             {isSlashMenuOpen && (
               <div className="absolute bottom-full left-0 mb-2 w-full sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
@@ -1168,7 +1200,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder={"Message " + selectedModel.name + "..."}
+                placeholder={
+                  providerStatus.connected
+                    ? `Message ${selectedModel.name}...`
+                    : `Configure provider & API key in Settings to begin...`
+                }
                 rows={1}
                 className="w-full px-3 py-1.5 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-40 overflow-y-auto leading-relaxed"
                 style={{ minHeight: '38px' }}
@@ -1237,7 +1273,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     }
                     title="Voice input"
                   >
-                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    <Mic className="w-4 h-4" />
                   </button>
 
                   {isStreaming ? (
@@ -1266,7 +1302,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
 
             <div className="text-center text-[10px] font-mono text-zinc-600">
-              Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow} Context
+              {providerStatus.connected ? (
+                <span>Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow}</span>
+              ) : (
+                <span className="text-amber-400/80">Provider not connected. Press Ctrl+, to open Settings</span>
+              )}
             </div>
 
           </div>
