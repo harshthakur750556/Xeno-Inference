@@ -22,7 +22,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
   useEffect(() => {
     const startTime = Date.now();
-    const duration = 3000; // 3 seconds exactly
+    const duration = 3000; // 3 seconds total
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -30,7 +30,6 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       const currentProgress = Math.min(Math.floor((elapsed / duration) * 100), 100);
       setProgress(currentProgress);
 
-      // Advance logs based on elapsed time
       if (elapsed > 2600) setActiveLogIndex(4);
       else if (elapsed > 2100) setActiveLogIndex(3);
       else if (elapsed > 1400) setActiveLogIndex(2);
@@ -58,17 +57,13 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         isFadingOut ? 'opacity-0 scale-98 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
-      {/* Background Starfield / Particle Subtle Texture */}
-      <div className="absolute inset-0 pointer-events-none opacity-40">
-        <div className="absolute top-10 left-1/4 w-72 h-72 rounded-full bg-purple-900/20 blur-[100px]" />
-        <div className="absolute bottom-10 right-1/4 w-96 h-96 rounded-full bg-cyan-900/20 blur-[120px]" />
-        <div className="absolute top-1/2 right-10 w-64 h-64 rounded-full bg-pink-900/15 blur-[90px]" />
-        {/* Subtle grid pattern overlay */}
+      {/* Subtle Monochrome Ambient Vignette */}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0)`,
-            backgroundSize: '32px 32px',
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)`,
+            backgroundSize: '40px 40px',
           }}
         />
       </div>
@@ -76,8 +71,8 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
       {/* Top Header Controls (Skip Button & 3s Timer Badge) */}
       <div className="relative z-20 flex items-center justify-between px-8 py-6 w-full max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-xs font-mono text-zinc-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             <span>XENO-CORE // RUST BACKEND</span>
           </div>
         </div>
@@ -88,7 +83,7 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
           </div>
           <button
             onClick={onComplete}
-            className="group flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-medium text-zinc-200 transition-all cursor-pointer backdrop-blur-md"
+            className="group flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/15 border border-white/15 text-xs font-medium text-zinc-200 transition-all cursor-pointer backdrop-blur-md"
           >
             <span>Skip Intro</span>
             <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -96,53 +91,53 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
         </div>
       </div>
 
-      {/* MAIN SPLIT PAGE DESIGN */}
+      {/* MAIN SPLIT PAGE DESIGN - PURE BLACK & WHITE AESTHETIC */}
       <main className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-center w-full max-w-7xl mx-auto px-6 sm:px-12 gap-8 lg:gap-16">
         
-        {/* LEFT SIDE: App Name (XENO in Roman, INFERENCE in Calligraphy) + Command Animation with Blurry Gradient */}
+        {/* LEFT SIDE: App Name (XENO in Roman, INFERENCE in Calligraphy) + Command Animation with Half Blurry Gradient */}
         <div className="flex flex-col justify-center items-start space-y-7 max-w-xl">
           
           {/* APPLICATION TITLE */}
           <div className="space-y-1">
             <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1">
-              {/* XENO in Romanian / Roman Serif Font */}
-              <h1 className="font-roman text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[0.22em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-700">
+              {/* XENO in Roman Serif Font in pure white */}
+              <h1 className="font-roman text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[0.22em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.25)] transition-all duration-700">
                 XENO
               </h1>
 
               {/* INFERENCE in Calligraphy Font with graceful entrance transition */}
-              <span className="font-calligraphy text-5xl sm:text-6xl md:text-7xl font-normal text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-200 to-cyan-200 drop-shadow-[0_0_25px_rgba(192,132,252,0.8)] animate-calligraphy">
+              <span className="font-calligraphy text-5xl sm:text-6xl md:text-7xl font-normal text-zinc-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-calligraphy">
                 Inference
               </span>
             </div>
 
-            <p className="text-xs sm:text-sm font-light text-zinc-400 tracking-[0.3em] uppercase pl-1 opacity-80">
+            <p className="text-xs sm:text-sm font-light text-zinc-400 tracking-[0.3em] uppercase pl-1">
               High-Throughput Neural AI Acceleration
             </p>
           </div>
 
           {/* COMMAND ANIMATION IN HALF BLURRY GRADIENT BLENDED IN BACKGROUND */}
           <div className="w-full relative group">
-            {/* Blurry Gradient Glow Layer blended into pure black background */}
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-indigo-500/30 via-purple-600/30 to-cyan-500/25 blur-xl opacity-80 group-hover:opacity-100 transition duration-700" />
+            {/* Blurry Monochrome Gradient Backdrop blended softly into pure black */}
+            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent blur-xl opacity-70 transition duration-700 pointer-events-none" />
             
             {/* Glassmorphic Container */}
-            <div className="relative rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/10 p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.8)] overflow-hidden">
+            <div className="relative rounded-2xl bg-zinc-950/80 backdrop-blur-2xl border border-white/10 p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.9)] overflow-hidden">
               
               {/* Terminal Title Bar */}
               <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
                   <span className="ml-2 text-xs font-mono text-zinc-400 flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-purple-400" />
+                    <Terminal className="w-3.5 h-3.5 text-zinc-300" />
                     xeno-tensor-init.sh
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
-                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                  <Cpu className="w-3.5 h-3.5 text-zinc-300" />
                   <span>CUDA / AVX-512</span>
                 </div>
               </div>
@@ -158,35 +153,35 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
                     <div
                       key={index}
                       className={`flex items-start gap-2 transition-all duration-300 ${
-                        isCurrent ? 'text-cyan-300 font-medium' : 'text-zinc-400 opacity-75'
+                        isCurrent ? 'text-white font-medium' : 'text-zinc-400 opacity-75'
                       }`}
                     >
-                      <span className="text-purple-400 select-none">&gt;</span>
+                      <span className="text-zinc-500 select-none">&gt;</span>
                       <span className="flex-1 break-all">{log.text}</span>
                       {isCurrent && (
-                        <span className="inline-block w-2 h-3.5 bg-cyan-400 animate-pulse select-none" />
+                        <span className="inline-block w-2 h-3.5 bg-white animate-pulse select-none" />
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* ANIMATED PROGRESS BAR */}
+              {/* ANIMATED PROGRESS BAR IN SHARP MONOCHROME */}
               <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-400 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <Zap className="w-3.5 h-3.5 text-zinc-300" />
                     BOOTSTRAP STATUS
                   </span>
-                  <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-300 tabular-nums">
+                  <span className="font-semibold text-white tabular-nums">
                     {progress}% {progress === 100 ? 'COMPLETE' : 'LOADING'}
                   </span>
                 </div>
 
                 {/* Progress Track & Fill */}
-                <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-white/5">
+                <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 transition-all duration-75 ease-out shadow-[0_0_12px_rgba(168,85,247,0.8)]"
+                    className="h-full rounded-full bg-white transition-all duration-75 ease-out shadow-[0_0_10px_rgba(255,255,255,0.4)]"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -197,8 +192,8 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
           {/* Bottom Badges */}
           <div className="flex items-center gap-3 text-xs text-zinc-500 font-mono">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Rust Axum Engine
+            <span className="flex items-center gap-1 text-zinc-400">
+              <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Rust Axum Engine
             </span>
             <span>•</span>
             <span>Zero-Latency SSE</span>
@@ -208,18 +203,18 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
         </div>
 
-        {/* RIGHT SIDE: SVG of Butterfly with Gradiented Colour Wings */}
+        {/* RIGHT SIDE: Exact Sharp Vector Butterfly (Static on Black Background) */}
         <div className="flex flex-col items-center justify-center relative select-none">
-          {/* Subtle Ambient Radial Backlight */}
-          <div className="absolute w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-gradient-to-tr from-cyan-500/15 via-purple-600/20 to-pink-500/15 blur-3xl pointer-events-none animate-pulse" />
+          {/* Subtle soft white ambient glow behind butterfly */}
+          <div className="absolute w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-white/[0.03] blur-3xl pointer-events-none" />
           
-          {/* High Fidelity Animated Butterfly */}
-          <ButterflySvg size={380} glow={true} animated={true} />
+          {/* Razor Sharp Original Vector Butterfly */}
+          <ButterflySvg size={420} />
 
           {/* Slogan below butterfly */}
           <div className="mt-4 text-center space-y-1">
             <div className="text-xs uppercase font-mono tracking-[0.25em] text-zinc-400">
-              Metamorphic AI Synthesis
+              Neural AI Synthesis
             </div>
             <div className="text-[11px] text-zinc-600 font-mono">
               Designed with TypeScript & Rust
