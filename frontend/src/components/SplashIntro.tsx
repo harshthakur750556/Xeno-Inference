@@ -242,14 +242,14 @@ export const SplashIntro: React.FC<SplashIntroProps> = ({ onComplete }) => {
 
           </div>
 
-          {/* RIGHT COLUMN: VECTOR BUTTERFLY (NEVER CUT OFF, OBJECT-CONTAIN) */}
-          <div className="flex flex-col items-center justify-center relative select-none w-full max-h-[38vh] sm:max-h-[44vh] md:max-h-[48vh] lg:max-h-[52vh] max-w-[220px] sm:max-w-[280px] md:max-w-[340px] lg:max-w-[400px] aspect-[1104/1380] my-auto">
+          {/* RIGHT COLUMN: VECTOR BUTTERFLY (ENLARGED & PROMINENT) */}
+          <div className="flex flex-col items-center justify-center relative select-none w-full max-h-[50vh] sm:max-h-[56vh] md:max-h-[62vh] lg:max-h-[68vh] max-w-[280px] sm:max-w-[360px] md:max-w-[440px] lg:max-w-[500px] xl:max-w-[540px] aspect-[1104/1380] my-auto">
             <div className="w-full h-full flex items-center justify-center relative">
-              <ButterflySvg className="w-full h-full max-h-full object-contain" />
+              <ButterflySvg className="w-full h-full max-h-full object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]" />
             </div>
 
             <div className="mt-2 text-center space-y-0.5 flex-shrink-0">
-              <div className="text-[9px] sm:text-[10px] uppercase font-mono tracking-[0.25em] text-zinc-400">
+              <div className="text-[10px] sm:text-xs uppercase font-mono tracking-[0.25em] text-zinc-300 font-semibold">
                 Neural AI Synthesis
               </div>
             </div>
