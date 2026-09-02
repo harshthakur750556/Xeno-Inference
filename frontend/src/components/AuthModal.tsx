@@ -27,24 +27,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setIsAuthenticating(true);
+    const googleUser: UserProfile = {
+      id: 'dev-user-' + Math.random().toString(36).substring(2, 9),
+      name: customName.trim() || 'Verified Developer',
+      email: customEmail.trim() || 'developer@local.dev',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+      provider: 'google',
+      authTimestamp: Date.now(),
+    };
 
-    // Simulate genuine Google OAuth handshake with zero-delay fallback
-    setTimeout(() => {
-      const googleUser: UserProfile = {
-        id: 'google-user-' + Math.random().toString(36).substring(2, 9),
-        name: customName.trim() || 'Verified Google Developer',
-        email: customEmail.trim() || 'developer@gmail.com',
-        avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-        provider: 'google',
-        authTimestamp: Date.now(),
-      };
-
-      setIsAuthenticating(false);
-      onLoginSuccess(googleUser);
-      onClose();
-    }, 600);
+    setIsAuthenticating(false);
+    onLoginSuccess(googleUser);
+    onClose();
   };
 
   return (
@@ -66,11 +62,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <h2 className="text-xl font-bold text-white tracking-wide">
-            Sign in to Xeno Engine
+            Developer Account & Cloud Sync
           </h2>
 
           <p className="text-xs text-zinc-400 max-w-xs mx-auto">
-            Authenticate your Google account to unlock provider configuration, cloud API keys, and persistent workspaces.
+            Optional developer profile to sync preferences, customize personas, and securely save credentials locally.
           </p>
         </div>
 

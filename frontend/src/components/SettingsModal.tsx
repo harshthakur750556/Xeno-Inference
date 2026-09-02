@@ -20,6 +20,7 @@ import {
   Activity,
   Lock,
   UserCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import type { InferenceConfig, LLMProvider } from '../types';
 import { testProviderConnection } from '../services/api';
@@ -280,21 +281,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'providers' && (
             <div className="space-y-5">
               
-              {!currentUser && (
-                <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-amber-300">
-                    <Lock className="w-4 h-4 flex-shrink-0" />
-                    <span>Sign in with Google to unlock custom cloud providers and secure key encryption.</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onOpenAuth}
-                    className="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] transition cursor-pointer flex-shrink-0 ml-2"
-                  >
-                    Sign In
-                  </button>
+              <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs text-zinc-300">
+                <div className="flex items-center gap-2 text-zinc-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>API keys are stored locally in browser storage and verified via server-side proxy (zero CORS blocks).</span>
                 </div>
-              )}
+                <span className="text-[10px] font-mono text-zinc-500 uppercase">Secure</span>
+              </div>
 
               {/* Provider Selection Grid */}
               <div className="space-y-2">

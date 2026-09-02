@@ -30,6 +30,7 @@ import {
   LogOut,
   User,
   Lock,
+  Gauge,
 } from 'lucide-react';
 import { ButterflySvg } from './ButterflySvg';
 import { XenoLogo } from './XenoLogo';
@@ -41,6 +42,7 @@ import { VoiceVisualizer } from './VoiceVisualizer';
 import { LeaderboardModal } from './LeaderboardModal';
 import { AiNewsModal } from './AiNewsModal';
 import { WebBrowserPanel } from './WebBrowserPanel';
+import { BenchmarkModal } from './BenchmarkModal';
 import { AuthModal } from './AuthModal';
 import type { UserProfile } from './AuthModal';
 import type {
@@ -75,6 +77,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { command: '/debug', label: 'Debug & Fix', description: 'Inspect concurrency, memory, or syntax bugs', promptPrefix: 'Analyze, debug, and provide fixes for: ' },
   { command: '/summarize', label: 'Summarize', description: 'Distill complex concepts into key architecture points', promptPrefix: 'Summarize the core technical findings of: ' },
   { command: '/canvas', label: 'Create Artifact', description: 'Generate a standalone modular file in Canvas', promptPrefix: 'Generate a comprehensive modular file artifact for: ' },
+  { command: '/benchmark', label: 'Run Benchmark', description: 'Test hardware latency, TTFT and throughput', promptPrefix: 'Run a performance and throughput benchmark on this engine.' },
+  { command: '/leaderboard', label: 'Model Leaderboard', description: 'Open Artificial Analysis & arena.ai leaderboard', promptPrefix: 'Show me the latest model intelligence leaderboard and rankings.' },
+  { command: '/search', label: 'Web Search', description: 'Search live web and research papers', promptPrefix: 'Search the live web for: ' },
 ];
 
 const CONFIG_STORAGE_KEY = 'xeno_inference_config_v2';
@@ -157,12 +162,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Leaderboard & News Modals
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isNewsOpen, setIsNewsOpen] = useState(false);
+  const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
 
-  // Tools Menu Popover State
+  // Tools Menu Popover State (with click-outside auto-close)
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
 
   // Slash Commands & Input UI
   const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editMessageContent, setEditMessageContent] = useState('');
 
@@ -178,6 +186,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Modals & Navigation (COLLAPSED ON DEFAULT ON ALL SCREENS)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Collapsed on default!
@@ -186,6 +195,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const speechBaseInputRef = useRef<string>('');
+  const isListeningRef = useRef<boolean>(false);
+
+  // Global click-outside & Escape key handlers to ensure menus are never stuck open
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (isToolsMenuOpen && toolsMenuRef.current && !toolsMenuRef.current.contains(target)) {
+        setIsToolsMenuOpen(false);
+      }
+      if (isModelDropdownOpen && modelDropdownRef.current && !modelDropdownRef.current.contains(target)) {
+        setIsModelDropdownOpen(false);
+      }
+      if (isSlashMenuOpen && slashMenuRef.current && !slashMenuRef.current.contains(target)) {
+        setIsSlashMenuOpen(false);
+      }
+    };
+
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsToolsMenuOpen(false);
+        setIsModelDropdownOpen(false);
+        setIsSlashMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleEscKey);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isToolsMenuOpen, isModelDropdownOpen, isSlashMenuOpen]);
 
   // Load Sessions from LocalStorage on mount
   useEffect(() => {
@@ -238,10 +281,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   };
 
   const handleOpenSettings = () => {
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      return;
-    }
     setIsSettingsOpen(true);
   };
 
@@ -254,43 +293,38 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         if (isMounted) {
           setProviderStatus({
             connected: online,
-            label: online ? 'Rust Daemon (3001)' : 'Rust Engine (Offline)',
+            label: online ? 'Rust Engine Online' : 'Rust Engine Offline',
           });
         }
-        return;
-      }
-
-      if (config.provider === 'ollama') {
+      } else if (config.provider === 'ollama') {
         try {
           const res = await fetch(`${config.baseUrl || 'http://localhost:11434'}/api/tags`);
           if (isMounted) {
             setProviderStatus({
               connected: res.ok,
-              label: res.ok ? 'Ollama (Local)' : 'Ollama (Offline)',
+              label: res.ok ? 'Ollama Online' : 'Ollama Offline',
             });
           }
         } catch {
           if (isMounted) {
-            setProviderStatus({ connected: false, label: 'Ollama (Offline)' });
+            setProviderStatus({
+              connected: false,
+              label: 'Ollama Offline',
+            });
           }
         }
-        return;
-      }
-
-      // Cloud Providers
-      const hasKey = Boolean(config.apiKey && config.apiKey.trim().length > 4);
-      if (isMounted) {
-        setProviderStatus({
-          connected: hasKey,
-          label: hasKey
-            ? `${config.provider.toUpperCase()} (Connected)`
-            : `${config.provider.toUpperCase()} (Key Required)`,
-        });
+      } else {
+        if (isMounted) {
+          setProviderStatus({
+            connected: true,
+            label: `${config.provider.toUpperCase()} Active`,
+          });
+        }
       }
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 8000);
+    const interval = setInterval(checkStatus, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -374,46 +408,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     setEditingSessionId(null);
   };
 
-  // Open Artifact in Canvas
+  // Open Artifact in Canvas (Strictly closes browser and collapses sidebar on smaller screens)
   const handleOpenInCanvas = (title: string, language: string, code: string) => {
     setCanvasTitle(title);
     setCanvasLanguage(language);
     setCanvasContent(code);
     setIsCanvasOpen(true);
-    setIsWebBrowserOpen(false); // Clean side-by-side management
+    setIsWebBrowserOpen(false);
+    setIsToolsMenuOpen(false);
+    if (window.innerWidth < 1200) {
+      setIsSidebarOpen(false);
+    }
   };
 
-  // Open Split Web Browser with Query
+  // Open Split Web Browser with Query (Strictly closes canvas and collapses sidebar on smaller screens)
   const handleOpenWebBrowser = (query?: string) => {
     if (query) setWebBrowserInitialQuery(query);
     setIsWebBrowserOpen(true);
-    setIsCanvasOpen(false); // Clean side-by-side management
+    setIsCanvasOpen(false);
     setIsToolsMenuOpen(false);
+    if (window.innerWidth < 1200) {
+      setIsSidebarOpen(false);
+    }
   };
 
-  // Paste Interceptor for large payloads & code files
-  const handleTextareaPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text');
-    if (pastedText && pastedText.length > 800) {
-      e.preventDefault();
-      const lineCount = pastedText.split('\n').length;
-      const firstLine = pastedText.trim().split('\n')[0].slice(0, 30);
-      const fileName = `pasted_snippet_${Date.now().toString().slice(-4)}.txt`;
-
-      setAttachments((prev) => [
-        ...prev,
-        {
-          name: `${fileName} (${lineCount} lines, ${(pastedText.length / 1024).toFixed(1)} KB)`,
-          size: pastedText.length,
-          type: 'text/plain',
-          content: pastedText,
-        },
-      ]);
-
-      if (!input.trim()) {
-        setInput(`Analyze the attached code/document: "${firstLine}..."`);
-      }
-    }
+  // Standard paste handler - Allows unrestricted, natural pasting into the input box
+  const handleTextareaPaste = () => {
+    // Native paste is permitted without hijacking
   };
 
   // Send Prompt
@@ -421,16 +442,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     const promptText = (textToSend || input).trim();
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
-
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
-    if (!providerStatus.connected) {
-      setIsSettingsOpen(true);
-      return;
-    }
 
     let currentSessionId = activeSessionId;
     if (!currentSessionId) {
@@ -492,22 +503,50 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         accumulatedContent += chunk;
         setStreamingContent(accumulatedContent);
 
-        // Autonomous AI Tool Execution (Open Browser / Open Canvas dynamically)
-        if (accumulatedContent.includes('[TOOL:OPEN_BROWSER query="')) {
+        // Autonomous AI Tool Execution (Open Browser / Open Canvas / Leaderboard / News / Benchmark)
+        if (accumulatedContent.includes('[TOOL:OPEN_BROWSER')) {
           const match = accumulatedContent.match(/\[TOOL:OPEN_BROWSER query="([^"]+)"\]/);
           if (match && match[1]) {
             handleOpenWebBrowser(match[1]);
           }
         }
+
+        if (accumulatedContent.includes('[TOOL:OPEN_CANVAS')) {
+          const canvasMatch = accumulatedContent.match(/\[TOOL:OPEN_CANVAS title="([^"]*)" language="([^"]*)"\]([\s\S]*?)(\[\/TOOL:OPEN_CANVAS\]|$)/);
+          if (canvasMatch) {
+            handleOpenInCanvas(
+              canvasMatch[1] || 'Generated Artifact',
+              canvasMatch[2] || 'code',
+              canvasMatch[3] ? canvasMatch[3].trim() : ''
+            );
+          }
+        }
+
+        if (accumulatedContent.includes('[TOOL:SHOW_LEADERBOARD]')) {
+          setIsLeaderboardOpen(true);
+        }
+
+        if (accumulatedContent.includes('[TOOL:SHOW_NEWS]')) {
+          setIsNewsOpen(true);
+        }
+
+        if (accumulatedContent.includes('[TOOL:RUN_BENCHMARK]')) {
+          setIsBenchmarkOpen(true);
+        }
       },
       (metrics) => {
         const duration = Date.now() - startGenTime;
         
-        // Clean any tool markup if present
+        // Clean any tool markup so the visible message is pristine
         const cleanContent = accumulatedContent
           .replace(/\[TOOL:OPEN_BROWSER query="[^"]+"\]/g, '')
+          .replace(/\[TOOL:OPEN_CANVAS title="[^"]*" language="[^"]*"\]([\s\S]*?)\[\/TOOL:OPEN_CANVAS\]/g, '$1')
+          .replace(/\[TOOL:OPEN_CANVAS[^\]]*\]/g, '')
+          .replace(/\[\/TOOL:OPEN_CANVAS\]/g, '')
           .replace(/\[TOOL:SHOW_LEADERBOARD\]/g, '')
-          .replace(/\[TOOL:SHOW_NEWS\]/g, '');
+          .replace(/\[TOOL:SHOW_NEWS\]/g, '')
+          .replace(/\[TOOL:RUN_BENCHMARK\]/g, '')
+          .trim();
 
         const assistantMessage: Message = {
           id: 'msg-' + Date.now() + '-ai',
@@ -646,46 +685,99 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Voice Input Speech Recognition
+  // Voice Input Speech Recognition (Real-Time Live Speech-to-Text)
   const toggleVoiceInput = () => {
     const windowWithSpeech = window as any;
     const SpeechRecognition = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser.');
+      alert('Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.');
       return;
     }
 
+    // If currently listening, stop immediately
     if (isListening) {
+      isListeningRef.current = false;
       setIsListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+        recognitionRef.current = null;
+      }
       return;
     }
 
     try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.lang = navigator.language || 'en-US';
+      recognitionRef.current = recognition;
+      isListeningRef.current = true;
+      speechBaseInputRef.current = input;
 
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onend = () => {
+        if (isListeningRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            setIsListening(false);
+            isListeningRef.current = false;
+          }
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'no-speech') {
+          // Normal pause in speech, don't abort
+          return;
+        }
+        console.warn('Speech recognition status:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permission in your browser URL bar.');
+          setIsListening(false);
+          isListeningRef.current = false;
+        }
+      };
 
       recognition.onresult = (event: any) => {
         let interimTranscript = '';
+        let finalTranscript = '';
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            setInput((prev) => (prev ? prev + ' ' + event.results[i][0].transcript : event.results[i][0].transcript));
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTranscript += item[0].transcript + ' ';
           } else {
-            interimTranscript += event.results[i][0].transcript;
+            interimTranscript += item[0].transcript;
           }
         }
+
+        if (finalTranscript) {
+          speechBaseInputRef.current = (speechBaseInputRef.current ? speechBaseInputRef.current + ' ' : '') + finalTranscript.trim();
+        }
+
+        const fullCurrent = (speechBaseInputRef.current + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+        setInput(fullCurrent);
       };
 
       recognition.start();
     } catch (err) {
-      console.error('Speech recognition error:', err);
+      console.error('Speech recognition initiation error:', err);
       setIsListening(false);
+      isListeningRef.current = false;
     }
   };
 
@@ -734,8 +826,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   };
 
   const handleSelectSlashCommand = (cmd: SlashCommand) => {
-    setInput(cmd.promptPrefix);
     setIsSlashMenuOpen(false);
+    if (cmd.command === '/benchmark') {
+      setIsBenchmarkOpen(true);
+      setInput('');
+      return;
+    }
+    if (cmd.command === '/leaderboard') {
+      setIsLeaderboardOpen(true);
+      setInput('');
+      return;
+    }
+    if (cmd.command === '/search') {
+      handleOpenWebBrowser();
+      setInput('');
+      return;
+    }
+    if (cmd.command === '/canvas') {
+      handleOpenInCanvas('New Artifact', 'rust', '// Interactive Canvas Workspace\n');
+      setInput('');
+      return;
+    }
+    setInput(cmd.promptPrefix);
     textareaRef.current?.focus();
   };
 
@@ -761,9 +873,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       <aside
         className={
           (isSidebarOpen
-            ? 'translate-x-0 w-72 md:w-64 lg:w-72'
-            : '-translate-x-full lg:translate-x-0 lg:w-0') +
-          ' fixed inset-y-0 left-0 lg:relative z-40 transition-all duration-300 ease-in-out bg-[#08080a] border-r border-zinc-800/80 flex flex-col justify-between overflow-hidden flex-shrink-0'
+            ? 'translate-x-0 w-72 md:w-64 lg:w-72 border-r border-zinc-800/80 opacity-100 pointer-events-auto'
+            : '-translate-x-full lg:translate-x-0 lg:w-0 border-r-0 opacity-0 pointer-events-none') +
+          ' fixed inset-y-0 left-0 lg:relative z-40 transition-all duration-300 ease-in-out bg-[#08080a] flex flex-col justify-between overflow-hidden flex-shrink-0'
         }
       >
         <div className="p-3.5 space-y-3 flex flex-col h-full overflow-hidden">
@@ -1000,7 +1112,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               )}
 
               {isModelDropdownOpen && providerStatus.connected && (
-                <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 max-h-[50vh] overflow-y-auto rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
+                <div
+                  ref={modelDropdownRef}
+                  className="absolute top-full left-0 mt-2 w-72 sm:w-80 max-h-[50vh] overflow-y-auto rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5"
+                >
                   <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-zinc-500 tracking-wider">
                     Select Model ({config.provider.toUpperCase()})
                   </div>
@@ -1034,8 +1149,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
           </div>
 
-          {/* Right: Split Browser Shortcut & New Chat */}
+          {/* Right: Benchmark, Split Browser Shortcut & New Chat */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button
+              onClick={() => setIsBenchmarkOpen(true)}
+              className={`p-2 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                isBenchmarkOpen
+                  ? 'bg-white text-black font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              }`}
+              title="Throughput & Latency Benchmark"
+            >
+              <Gauge className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Benchmark</span>
+            </button>
+
             <button
               onClick={() => handleOpenWebBrowser()}
               className={`p-2 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
@@ -1294,12 +1422,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         <footer className="p-3 sm:p-5 bg-gradient-to-t from-[#000000] via-[#000000] to-transparent z-20 flex-shrink-0">
           <div className="max-w-3xl mx-auto space-y-2 relative">
             
-            {/* Live Audio Visualizer Oscilloscope Graph when listening */}
-            <VoiceVisualizer isListening={isListening} onStop={toggleVoiceInput} />
-
             {/* Tools Menu Popover */}
             {isToolsMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-2 z-50 animate-fade-in space-y-1">
+              <div
+                ref={toolsMenuRef}
+                className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-2 z-50 animate-fade-in space-y-1"
+              >
                 <div className="px-2 py-1 text-[10px] font-mono uppercase text-zinc-500 tracking-wider flex items-center justify-between">
                   <span>AI Tools & Accelerators</span>
                   <button onClick={() => setIsToolsMenuOpen(false)} className="hover:text-white">&times;</button>
@@ -1313,9 +1441,72 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Globe className="w-3.5 h-3.5" />
-                    <span>Live Split Web Browser</span>
+                    <span>Live AI Web Search</span>
                   </div>
                   <span className="text-[10px] font-mono text-zinc-500">Launch ↗</span>
+                </button>
+
+                {/* Open Canvas Panel */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenInCanvas('New Artifact', 'rust', '// Interactive Canvas Workspace\n');
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Artifact Canvas Workspace</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">Open ↗</span>
+                </button>
+
+                {/* Live Hardware Benchmark */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBenchmarkOpen(true);
+                    setIsToolsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-3.5 h-3.5" />
+                    <span>Hardware Latency Benchmark</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">Run ↗</span>
+                </button>
+
+                {/* Leaderboard */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaderboardOpen(true);
+                    setIsToolsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>Artificial Analysis & Arena Leaderboard</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">View ↗</span>
+                </button>
+
+                {/* AI Releases */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewsOpen(true);
+                    setIsToolsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Newspaper className="w-3.5 h-3.5" />
+                    <span>AI Releases & Daily Papers</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">Read ↗</span>
                 </button>
 
                 {/* Deep Reasoning Toggle */}
@@ -1335,23 +1526,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     <span>Deep Reasoning (CoT)</span>
                   </div>
                   <span className="text-[10px] font-mono">{config.enableReasoning ? 'ON' : 'OFF'}</span>
-                </button>
-
-                {/* Open Canvas Panel */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCanvasOpen(true);
-                    setIsWebBrowserOpen(false);
-                    setIsToolsMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 text-zinc-400 hover:text-white text-xs transition cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Artifact Canvas Workspace</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-500">Open ↗</span>
                 </button>
 
                 {/* Insert Code Block */}
@@ -1375,7 +1549,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
             {/* Slash Commands Menu */}
             {isSlashMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-2 w-full sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5">
+              <div
+                ref={slashMenuRef}
+                className="absolute bottom-full left-0 mb-2 w-full sm:w-80 rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5"
+              >
                 <div className="px-2.5 py-1 text-[10px] font-mono uppercase text-zinc-500">
                   Quick Prompts
                 </div>
@@ -1416,8 +1593,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             )}
 
             {/* Floating Pill Capsule Omnibar */}
-            <div className="relative rounded-3xl bg-zinc-900/70 hover:bg-zinc-900/90 border border-zinc-800/90 hover:border-zinc-700 focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-white/10 shadow-2xl transition-all duration-200 p-2 sm:p-2.5">
+            <div className={`relative rounded-3xl bg-zinc-900/70 hover:bg-zinc-900/90 border shadow-2xl transition-all duration-200 p-2 sm:p-2.5 ${
+              isListening
+                ? 'border-red-500/60 ring-2 ring-red-500/20'
+                : 'border-zinc-800/90 hover:border-zinc-700 focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-white/10'
+            }`}>
               
+              {/* Integrated Audio-Reactive Soundwave Visualizer (Inside Input Box, No Popup) */}
+              {isListening && (
+                <VoiceVisualizer isListening={isListening} onStop={toggleVoiceInput} inline={true} />
+              )}
+
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -1429,13 +1615,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder={
-                  !currentUser
-                    ? 'Sign in with Google to begin...'
-                    : providerStatus.connected
-                    ? `Message ${selectedModel.name}... (Paste code or files supported)`
-                    : `Configure provider & API key in Settings to begin...`
-                }
+                placeholder={`Ask ${selectedModel.name} anything, paste code, or type / for commands...`}
                 rows={1}
                 className="w-full px-3 py-1.5 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-40 overflow-y-auto leading-relaxed"
                 style={{ minHeight: '38px' }}
@@ -1513,13 +1693,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   <button
                     type="button"
                     onClick={toggleVoiceInput}
-                    className={
-                      'p-1.5 rounded-full transition cursor-pointer ' +
-                      (isListening
-                        ? 'bg-white/20 text-white animate-pulse'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/10')
-                    }
-                    title="Voice input"
+                    className={`p-1.5 rounded-full transition cursor-pointer ${
+                      isListening
+                        ? 'bg-red-500/25 text-red-400 border border-red-500/50 animate-pulse'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                    }`}
+                    title={isListening ? 'Stop recording (Click to finish)' : 'Voice input (Speech to Text)'}
                   >
                     <Mic className="w-4 h-4" />
                   </button>
@@ -1549,16 +1728,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               </div>
             </div>
 
-            <div className="text-center text-[10px] font-mono text-zinc-600">
-              {currentUser ? (
-                providerStatus.connected ? (
-                  <span>Provider: {config.provider.toUpperCase()} • Model: {selectedModel.name} • {selectedModel.contextWindow}</span>
-                ) : (
-                  <span className="text-amber-400/80">Provider not configured. Press Ctrl+, to configure</span>
-                )
-              ) : (
-                <span className="text-zinc-400">Click "Sign in with Google" to enable full AI inference</span>
-              )}
+            <div className="text-center text-[10px] font-mono text-zinc-500 flex items-center justify-center gap-2">
+              <span>Engine: <strong className="text-zinc-300 font-semibold">{config.provider.toUpperCase()}</strong></span>
+              <span>•</span>
+              <span>Model: <strong className="text-zinc-300 font-semibold">{selectedModel.name}</strong></span>
+              <span>•</span>
+              <span className="text-emerald-400 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Engine
+              </span>
             </div>
 
           </div>
@@ -1602,6 +1780,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         onSelectModel={(modelId) => {
           setConfig((prev) => ({ ...prev, model: modelId }));
         }}
+      />
+
+      {/* ================= HARDWARE THROUGHPUT BENCHMARK MODAL ================= */}
+      <BenchmarkModal
+        isOpen={isBenchmarkOpen}
+        onClose={() => setIsBenchmarkOpen(false)}
+        rustBackendUrl={config.rustBackendUrl}
+        activeModel={config.model}
       />
 
       {/* ================= AI NEWS & MODEL RELEASES MODAL ================= */}

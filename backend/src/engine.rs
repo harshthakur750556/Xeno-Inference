@@ -71,18 +71,14 @@ impl InferenceEngine {
             )
         } else {
             format!(
-                "### Xeno Neural AI Response\n\n\
-                 I have received and evaluated your prompt: **\"{}\"**.\n\n\
-                 Running on the **{}** tensor core at temperature **{:.2}**:\n\n\
-                 - **Inference Latency:** Sub-100ms Time-To-First-Token (TTFT).\n\
-                 - **Context Paging:** 128K dynamic attention matrix with zero memory fragmentation.\n\
-                 - **Throughput:** > 90 tokens/sec sustained emission.\n\n\
-                 ```bash\n\
-                 # Rust backend health check\n\
-                 curl -s http://127.0.0.1:3001/api/health | jq .\n\
-                 ```\n\n\
-                 How else may I assist you with your computational workload?",
-                last_prompt, req.model, req.temperature
+                "### Xeno Native Engine\n\n\
+                 Received query: **\"{}\"**.\n\n\
+                 The native Axum async daemon is running on `http://127.0.0.1:3001`.\n\n\
+                 To stream live tokens from cloud or local models:\n\
+                 - **Cloud Models:** Enter an OpenRouter, DeepSeek, or Groq API key in **Settings** (`Ctrl+,`).\n\
+                 - **Local Models:** Run Ollama on `localhost:11434` or custom vLLM server.\n\n\
+                 *Zero-CORS server-side verification is active.*",
+                last_prompt
             )
         };
 

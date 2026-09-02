@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Download, Edit3, Eye, FileCode, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Copy, Check, Download, Edit3, Eye, FileCode, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface CanvasPanelProps {
@@ -62,19 +62,29 @@ export const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   return (
     <aside
-      className={`border-l border-zinc-800 bg-[#08080a] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300 ${
+      className={`border-l border-zinc-800/80 bg-[#08080a] shadow-2xl flex flex-col flex-shrink-0 transition-all duration-300 ${
         isFullScreen
           ? 'fixed inset-0 z-50 w-full h-full'
-          : 'relative h-full w-full sm:w-[480px] md:w-[520px] lg:w-[480px] xl:w-[560px] 2xl:w-[640px] z-30'
+          : 'fixed inset-0 z-50 w-full h-full lg:relative lg:h-full lg:w-[420px] xl:w-[460px] 2xl:w-[500px] lg:max-w-[38vw] lg:z-20'
       }`}
     >
       {/* Canvas Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-[#0c0c10] select-none">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 bg-[#0c0c10] select-none">
         <div className="flex items-center gap-2 min-w-0">
+          {/* Back to Chat on Mobile/Tablet */}
+          <button
+            onClick={onClose}
+            className="lg:hidden flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs transition cursor-pointer flex-shrink-0"
+            title="Back to Chat"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="font-semibold">Chat</span>
+          </button>
+
           <FileCode className="w-4 h-4 text-white flex-shrink-0" />
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-semibold text-xs text-white truncate">{title}</span>
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-white/10 text-zinc-300 border border-white/10 flex-shrink-0">
               {language || 'DOC'}
             </span>
           </div>
