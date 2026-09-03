@@ -60,6 +60,39 @@ module.exports = async function handler(req, res) {
     const finalUrlObj = new URL(finalUrl);
     const basePath = finalUrlObj.origin + finalUrlObj.pathname.substring(0, finalUrlObj.pathname.lastIndexOf('/') + 1);
 
+    // Detect DuckDuckGo anti-bot block page
+    if (html.includes('If this persists, please email us') || html.includes('anonymized error code')) {
+      const searchMatch = finalUrl.match(/[?&]q=([^&]+)/);
+      const queryTerm = searchMatch ? decodeURIComponent(searchMatch[1].replace(/\+/g, ' ')) : 'Search';
+      html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Search: ${queryTerm}</title>
+  <style>
+    body { background: #09090d; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 24px; text-align: center; }
+    h2 { font-size: 20px; margin-bottom: 8px; color: #fff; }
+    p { color: #a1a1aa; font-size: 14px; max-width: 480px; line-height: 1.5; margin-bottom: 24px; }
+    .btn-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 12px; background: #27272a; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; transition: background 0.2s; }
+    .btn:hover { background: #3f3f46; }
+    .btn-primary { background: #38bdf8; color: #000; }
+    .btn-primary:hover { background: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <h2>Web Search Portal</h2>
+  <p>External search engine rate-limiting was detected. Launch your query directly for "<strong>${queryTerm}</strong>":</p>
+  <div class="btn-group">
+    <a class="btn btn-primary" href="https://www.google.com/search?q=${encodeURIComponent(queryTerm)}" target="_blank" rel="noopener noreferrer">Search with Google &rarr;</a>
+    <a class="btn" href="https://duckduckgo.com/?q=${encodeURIComponent(queryTerm)}" target="_blank" rel="noopener noreferrer">Open DuckDuckGo &rarr;</a>
+    <a class="btn" href="https://search.brave.com/search?q=${encodeURIComponent(queryTerm)}" target="_blank" rel="noopener noreferrer">Search with Brave &rarr;</a>
+    <a class="btn" href="https://arxiv.org/search/?query=${encodeURIComponent(queryTerm)}&searchtype=all" target="_blank" rel="noopener noreferrer">Search arXiv &rarr;</a>
+  </div>
+</body>
+</html>`;
+    }
+
     // Strip framing restrictions, meta CSP, and frame busting
     html = html.replace(/<meta[^>]*http-equiv=["']?(content-security-policy|x-frame-options)["']?[^>]*>/gi, '');
     html = html.replace(/\b(top|parent)\.location/g, 'window.location');

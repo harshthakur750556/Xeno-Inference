@@ -648,6 +648,30 @@ const server = http.createServer(async (req, res) => {
       console.warn('Backend search error:', err.message);
     }
 
+    if (results.length === 0) {
+      try {
+        // Fallback: Wikipedia Search API (High reliability, zero rate-limit blocks)
+        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&utf8=1`;
+        const wikiRes = await fetchHttps(wikiUrl);
+        if (wikiRes.status === 200) {
+          const wikiData = JSON.parse(wikiRes.data);
+          if (wikiData.query && Array.isArray(wikiData.query.search)) {
+            wikiData.query.search.slice(0, 5).forEach((item) => {
+              results.push({
+                title: item.title,
+                url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
+                snippet: item.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"'),
+                source: 'Wikipedia Encyclopedia',
+                date: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Verified',
+              });
+            });
+          }
+        }
+      } catch (wErr) {
+        console.warn('Wiki fallback search error:', wErr.message);
+      }
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ results }));
     return;

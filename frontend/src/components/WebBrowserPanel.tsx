@@ -20,7 +20,7 @@ import {
   Bookmark,
   Share2,
 } from 'lucide-react';
-import { fetchWebPageReader, fetchBrowserPageHtml } from '../services/liveData';
+import { fetchLiveWebSearch, fetchWebPageReader, fetchBrowserPageHtml } from '../services/liveData';
 import type { LiveSearchResult, AiSearchSynthesis, WebPageReaderData } from '../services/liveData';
 import { ParticleProximityCanvas } from './ParticleProximityCanvas';
 
@@ -196,15 +196,35 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
 
     const isUrl = /^https?:\/\//i.test(clean) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(clean);
 
-    let targetUrl = clean;
     if (isUrl) {
-      targetUrl = clean.startsWith('http') ? clean : `https://${clean}`;
-    } else {
-      // Real Web Search Engine: DuckDuckGo HTML Search
-      targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(clean)}`;
+      const targetUrl = clean.startsWith('http') ? clean : `https://${clean}`;
+      await loadBrowserPage(targetUrl, true);
+      return;
     }
 
-    await loadBrowserPage(targetUrl, true);
+    // High-speed native search engine with AI research synthesis (bypasses DuckDuckGo bot blocking)
+    setIsLoading(true);
+    setUrlInput(clean);
+    updateActiveTab((t) => ({
+      ...t,
+      title: `Search: ${clean.slice(0, 20)}`,
+      url: clean,
+      view: 'search',
+      history: [...t.history.slice(0, t.historyIdx + 1), clean],
+      historyIdx: t.historyIdx + 1,
+    }));
+
+    try {
+      const { results, synthesis } = await fetchLiveWebSearch(clean);
+      updateActiveTab({
+        searchResults: results,
+        aiSynthesis: synthesis,
+      });
+    } catch (err) {
+      console.error('Live search error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateTab = () => {
@@ -264,26 +284,36 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
   const handleBack = () => {
     if (activeTab.historyIdx > 0) {
       const prev = activeTab.history[activeTab.historyIdx - 1];
+      const isPrevUrl = /^https?:\/\//i.test(prev) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(prev);
       updateActiveTab((t) => ({
         ...t,
         historyIdx: t.historyIdx - 1,
         url: prev,
       }));
       setUrlInput(prev);
-      loadBrowserPage(prev, false);
+      if (isPrevUrl) {
+        loadBrowserPage(prev, false);
+      } else {
+        performSearchOrNavigate(prev);
+      }
     }
   };
 
   const handleForward = () => {
     if (activeTab.historyIdx < activeTab.history.length - 1) {
       const next = activeTab.history[activeTab.historyIdx + 1];
+      const isNextUrl = /^https?:\/\//i.test(next) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(next);
       updateActiveTab((t) => ({
         ...t,
         historyIdx: t.historyIdx + 1,
         url: next,
       }));
       setUrlInput(next);
-      loadBrowserPage(next, false);
+      if (isNextUrl) {
+        loadBrowserPage(next, false);
+      } else {
+        performSearchOrNavigate(next);
+      }
     }
   };
 
@@ -732,12 +762,38 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
 
                 {/* Search Results List */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-zinc-400 px-1">
                     <span className="font-semibold text-white">SEARCH RESULTS ({activeTab.searchResults.length})</span>
-                    <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>Engine: Live Multi-Source (DuckDuckGo + arXiv + Wikipedia)</span>
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-zinc-500 hidden sm:inline">External:</span>
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(activeTab.url)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-[10px] transition"
+                        title="Search with Google in new tab"
+                      >
+                        Google ↗
+                      </a>
+                      <a
+                        href={`https://search.brave.com/search?q=${encodeURIComponent(activeTab.url)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-[10px] transition"
+                        title="Search with Brave in new tab"
+                      >
+                        Brave ↗
+                      </a>
+                      <a
+                        href={`https://arxiv.org/search/?query=${encodeURIComponent(activeTab.url)}&searchtype=all`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-[10px] transition"
+                        title="Search scientific papers on arXiv"
+                      >
+                        arXiv ↗
+                      </a>
+                    </div>
                   </div>
 
                   {activeTab.searchResults.length === 0 ? (
