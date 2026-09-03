@@ -20,7 +20,7 @@ import {
   Bookmark,
   Share2,
 } from 'lucide-react';
-import { fetchLiveWebSearch, fetchWebPageReader } from '../services/liveData';
+import { fetchLiveWebSearch, fetchWebPageReader, fetchBrowserPageHtml } from '../services/liveData';
 import type { LiveSearchResult, AiSearchSynthesis, WebPageReaderData } from '../services/liveData';
 import { ParticleProximityCanvas } from './ParticleProximityCanvas';
 
@@ -32,6 +32,7 @@ interface BrowserTab {
   searchResults: LiveSearchResult[];
   aiSynthesis: AiSearchSynthesis | null;
   readerData: WebPageReaderData | null;
+  pageHtml?: string;
   history: string[];
   historyIdx: number;
 }
@@ -115,6 +116,25 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
     };
   }, [isOpen]);
 
+  // Interactive Navigation Bridge: Handles link clicks and form submits inside the browser iframe
+  useEffect(() => {
+    const handleBrowserBridgeMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'BROWSER_NAVIGATE' && data.url) {
+        loadBrowserPage(data.url, true);
+      } else if (data.type === 'BROWSER_PAGE_LOADED') {
+        if (data.title) {
+          updateActiveTab({ title: data.title });
+        }
+      }
+    };
+
+    window.addEventListener('message', handleBrowserBridgeMessage);
+    return () => window.removeEventListener('message', handleBrowserBridgeMessage);
+  }, [activeTabId]);
+
   // Execute initial query if opened with an explicit search prompt
   useEffect(() => {
     if (isOpen && initialQuery) {
@@ -134,48 +154,57 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
     );
   };
 
+  const loadBrowserPage = async (targetUrl: string, addToHistory: boolean = true) => {
+    const cleanUrl = targetUrl.trim();
+    if (!cleanUrl) return;
+
+    setIsLoading(true);
+    setUrlInput(cleanUrl);
+
+    if (addToHistory) {
+      updateActiveTab((t) => ({
+        ...t,
+        url: cleanUrl,
+        view: 'webpage',
+        history: [...t.history.slice(0, t.historyIdx + 1), cleanUrl],
+        historyIdx: t.historyIdx + 1,
+      }));
+    } else {
+      updateActiveTab((t) => ({
+        ...t,
+        url: cleanUrl,
+        view: 'webpage',
+      }));
+    }
+
+    try {
+      const { html, title } = await fetchBrowserPageHtml(cleanUrl);
+      updateActiveTab({
+        pageHtml: html,
+        title: title || cleanUrl.replace(/^https?:\/\//, '').split('/')[0],
+      });
+    } catch (err) {
+      console.error('Browser navigate error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const performSearchOrNavigate = async (queryOrUrl: string) => {
     const clean = queryOrUrl.trim();
     if (!clean) return;
 
     const isUrl = /^https?:\/\//i.test(clean) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(clean);
 
+    let targetUrl = clean;
     if (isUrl) {
-      const fullUrl = clean.startsWith('http') ? clean : `https://${clean}`;
-      setIsLoading(true);
-      updateActiveTab((t) => ({
-        ...t,
-        title: clean.replace(/^https?:\/\//, '').split('/')[0],
-        url: fullUrl,
-        view: 'webpage',
-        history: [...t.history.slice(0, t.historyIdx + 1), fullUrl],
-        historyIdx: t.historyIdx + 1,
-      }));
-      return;
+      targetUrl = clean.startsWith('http') ? clean : `https://${clean}`;
+    } else {
+      // Real Web Search Engine: DuckDuckGo HTML Search
+      targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(clean)}`;
     }
 
-    // Web Search Mode
-    setIsLoading(true);
-    updateActiveTab((t) => ({
-      ...t,
-      title: clean.slice(0, 22),
-      url: clean,
-      view: 'search',
-      history: [...t.history.slice(0, t.historyIdx + 1), clean],
-      historyIdx: t.historyIdx + 1,
-    }));
-
-    try {
-      const { results, synthesis } = await fetchLiveWebSearch(clean);
-      updateActiveTab({
-        searchResults: results,
-        aiSynthesis: synthesis,
-      });
-    } catch (err) {
-      console.error('Live search error:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    await loadBrowserPage(targetUrl, true);
   };
 
   const handleCreateTab = () => {
@@ -207,6 +236,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         searchResults: [],
         aiSynthesis: null,
         readerData: null,
+        pageHtml: undefined,
         history: [],
         historyIdx: -1,
       });
@@ -226,6 +256,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
       view: 'home',
       url: '',
       title: 'New Tab',
+      pageHtml: undefined,
     });
     setUrlInput('');
   };
@@ -239,7 +270,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         url: prev,
       }));
       setUrlInput(prev);
-      performSearchOrNavigate(prev);
+      loadBrowserPage(prev, false);
     }
   };
 
@@ -252,7 +283,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         url: next,
       }));
       setUrlInput(next);
-      performSearchOrNavigate(next);
+      loadBrowserPage(next, false);
     }
   };
 
@@ -261,17 +292,8 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
     performSearchOrNavigate(urlInput);
   };
 
-  const handleOpenLiveWebPage = (url: string, title?: string) => {
-    setIsLoading(true);
-    updateActiveTab((t) => ({
-      ...t,
-      view: 'webpage',
-      url,
-      title: title ? title.slice(0, 24) : url.replace(/^https?:\/\//, '').split('/')[0],
-      history: [...t.history.slice(0, t.historyIdx + 1), url],
-      historyIdx: t.historyIdx + 1,
-    }));
-    setUrlInput(url);
+  const handleOpenLiveWebPage = async (url: string, _title?: string) => {
+    await loadBrowserPage(url, true);
   };
 
   const handleOpenReader = async (result: LiveSearchResult) => {
@@ -854,9 +876,17 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
             <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0b0b10] border-b border-zinc-800 text-xs font-mono">
               <div className="flex items-center gap-2 min-w-0 pr-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                <span className="truncate text-zinc-300 max-w-[200px] sm:max-w-md">{activeTab.url}</span>
+                <span className="truncate text-zinc-200 font-semibold max-w-[200px] sm:max-w-md">{activeTab.title || activeTab.url}</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => loadBrowserPage(activeTab.url, false)}
+                  className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
+                  title="Reload Page"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-white' : ''}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -868,10 +898,10 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                     })
                   }
                   className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs transition cursor-pointer"
-                  title="Extract clean markdown reader via Jina AI"
+                  title="Switch to Distraction-Free Reader View"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Reader Mode</span>
+                  <span>Reader</span>
                 </button>
                 <a
                   href={activeTab.url}
@@ -887,22 +917,33 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
             </div>
 
             {isLoading && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm text-xs font-mono text-zinc-300 gap-2">
-                <RotateCw className="w-5 h-5 animate-spin text-white" />
-                <span>Loading live webpage...</span>
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-xs font-mono text-zinc-300 gap-3">
+                <RotateCw className="w-6 h-6 animate-spin text-white" />
+                <span className="font-semibold">Loading live interactive page...</span>
+                <span className="text-[11px] text-zinc-500 max-w-xs text-center truncate">{activeTab.url}</span>
               </div>
             )}
-            {activeTab.url ? (
+
+            {activeTab.pageHtml ? (
+              <iframe
+                key={activeTab.url}
+                srcDoc={activeTab.pageHtml}
+                className="w-full h-full border-0 flex-1 bg-white min-h-[480px]"
+                title={activeTab.title}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                onLoad={() => setIsLoading(false)}
+              />
+            ) : activeTab.url ? (
               <iframe
                 key={activeTab.url}
                 src={
                   isProxyOnline
                     ? `http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(activeTab.url)}`
-                    : activeTab.url
+                    : `/api/proxy?url=${encodeURIComponent(activeTab.url)}`
                 }
-                className="w-full h-full border-0 flex-1 bg-white min-h-[450px]"
+                className="w-full h-full border-0 flex-1 bg-white min-h-[480px]"
                 title={activeTab.title}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 onLoad={() => setIsLoading(false)}
               />
             ) : (
@@ -919,23 +960,25 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
               </div>
             )}
 
-            {/* Smart Iframe Fallback Hint */}
-            <div className="px-3 sm:px-4 py-1.5 bg-black border-t border-zinc-800 text-[10px] sm:text-[11px] font-mono text-zinc-500 flex items-center justify-between">
-              <span className="truncate">Sites with X-Frame-Options (arXiv, Google, GitHub) block iframes. Switch to Reader Mode for markdown.</span>
-              <button
-                type="button"
-                onClick={() =>
-                  handleOpenReader({
-                    title: activeTab.title || 'Reader View',
-                    url: activeTab.url,
-                    snippet: '',
-                    source: 'Direct URL',
-                  })
-                }
-                className="text-sky-400 hover:text-sky-300 font-semibold cursor-pointer ml-2 flex-shrink-0"
-              >
-                Reader Mode →
-              </button>
+            {/* Bottom Status Bar */}
+            <div className="px-3 sm:px-4 py-1.5 bg-[#07070a] border-t border-zinc-800 text-[10px] sm:text-[11px] font-mono text-zinc-500 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                <span className="text-zinc-400 font-medium">Interactive Web Engine</span>
+                <span>•</span>
+                <span className="truncate">{activeTab.url}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(999, activeTab.url)}
+                  className="text-zinc-400 hover:text-white transition cursor-pointer flex items-center gap-1"
+                  title="Copy Page URL"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>Copy</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

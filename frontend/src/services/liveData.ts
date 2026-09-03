@@ -329,6 +329,46 @@ export async function fetchWebPageReader(targetUrl: string): Promise<WebPageRead
 }
 
 /**
+ * Universal interactive web browser page loader.
+ * Fetches HTML through proxy (Vercel serverless /api/proxy or local backend :3001)
+ * with base tag, stripped security frame headers, and injected navigation bridge.
+ */
+export async function fetchBrowserPageHtml(targetUrl: string): Promise<{ html: string; title: string }> {
+  const fullUrl = targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`;
+
+  // Try endpoints:
+  // 1. /api/proxy?url= (Vercel serverless function or reverse proxy)
+  // 2. http://127.0.0.1:3001/api/proxy?url= (local backend server)
+  const proxyEndpoints = [
+    `/api/proxy?url=${encodeURIComponent(fullUrl)}`,
+    `http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(fullUrl)}`,
+  ];
+
+  for (const ep of proxyEndpoints) {
+    try {
+      const res = await fetch(ep, { signal: AbortSignal.timeout(9000) });
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.trim().length > 0) {
+          const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const title = titleMatch ? titleMatch[1].trim() : fullUrl.replace(/^https?:\/\//, '').split('/')[0];
+          return { html: text, title };
+        }
+      }
+    } catch {
+      // Continue to next endpoint
+    }
+  }
+
+  // Fallback: If no proxy is available, create a browsable shell
+  const domain = fullUrl.replace(/^https?:\/\//, '').split('/')[0];
+  return {
+    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#09090d;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;margin:0;padding:24px;text-align:center;}h3{font-size:22px;margin-bottom:8px;}p{color:#a1a1aa;max-width:460px;font-size:14px;line-height:1.6;margin-bottom:24px;}a.btn{display:inline-block;padding:12px 24px;border-radius:12px;background:#fff;color:#000;text-decoration:none;font-weight:600;font-size:14px;}</style></head><body><h3>Connecting to ${domain}</h3><p>Direct frame embedding is secured. Click below to launch this website directly.</p><a class="btn" href="${fullUrl}" target="_blank" rel="noopener noreferrer">Open Website in External Window &rarr;</a></body></html>`,
+    title: domain,
+  };
+}
+
+/**
  * Canonical model family detector and deduplicator.
  * Consolidates variants like 'openai/gpt-4o', 'gpt-4o-2024-08-06', 'chatgpt-4o-latest' into 'GPT-4o'.
  */

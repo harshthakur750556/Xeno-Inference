@@ -1,3 +1,8 @@
+try {
+  const dns = require('node:dns');
+  if (dns && dns.setDefaultResultOrder) dns.setDefaultResultOrder('ipv4first');
+} catch {}
+
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
@@ -724,13 +729,59 @@ const server = http.createServer(async (req, res) => {
             proxyRes.on('data', (chunk) => htmlChunks.push(chunk));
             proxyRes.on('end', () => {
               let html = Buffer.concat(htmlChunks).toString('utf-8');
-              const baseTag = `<base href="${urlObj.origin}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}">`;
+              const basePath = `${urlObj.origin}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`;
+              html = html.replace(/<meta[^>]*http-equiv=["']?(content-security-policy|x-frame-options)["']?[^>]*>/gi, '');
+              const baseTag = `<base href="${basePath}">`;
+              const bridgeScript = `
+<script>
+(function() {
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest('a');
+    if (a && a.href && !a.href.startsWith('javascript:') && !a.href.startsWith('#')) {
+      e.preventDefault();
+      window.parent.postMessage({
+        type: 'BROWSER_NAVIGATE',
+        url: a.href,
+        title: a.innerText ? a.innerText.trim() : document.title || a.href
+      }, '*');
+    }
+  }, true);
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (form && form.action) {
+      e.preventDefault();
+      var formData = new FormData(form);
+      var params = new URLSearchParams();
+      for (var pair of formData.entries()) {
+        params.append(pair[0], pair[1]);
+      }
+      var actionUrl = new URL(form.action, window.location.href);
+      var target = actionUrl.origin + actionUrl.pathname + '?' + params.toString();
+      window.parent.postMessage({
+        type: 'BROWSER_NAVIGATE',
+        url: target,
+        title: 'Search: ' + (params.get('q') || params.get('query') || '')
+      }, '*');
+    }
+  }, true);
+
+  window.addEventListener('load', function() {
+    window.parent.postMessage({
+      type: 'BROWSER_PAGE_LOADED',
+      url: "${fullUrl}",
+      title: document.title || "${urlObj.hostname}"
+    }, '*');
+  });
+})();
+</script>
+`;
               if (html.includes('<head>')) {
-                html = html.replace('<head>', `<head>${baseTag}`);
+                html = html.replace('<head>', `<head>${baseTag}${bridgeScript}`);
               } else if (html.includes('<HEAD>')) {
-                html = html.replace('<HEAD>', `<HEAD>${baseTag}`);
+                html = html.replace('<HEAD>', `<HEAD>${baseTag}${bridgeScript}`);
               } else {
-                html = `${baseTag}${html}`;
+                html = `${baseTag}${bridgeScript}${html}`;
               }
               res.writeHead(proxyRes.statusCode || 200, headersToSend);
               res.end(html);
