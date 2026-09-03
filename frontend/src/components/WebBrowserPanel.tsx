@@ -20,7 +20,7 @@ import {
   Bookmark,
   Share2,
 } from 'lucide-react';
-import { fetchLiveWebSearch, fetchWebPageReader, fetchBrowserPageHtml } from '../services/liveData';
+import { fetchWebPageReader, fetchBrowserPageHtml } from '../services/liveData';
 import type { LiveSearchResult, AiSearchSynthesis, WebPageReaderData } from '../services/liveData';
 import { ParticleProximityCanvas } from './ParticleProximityCanvas';
 
