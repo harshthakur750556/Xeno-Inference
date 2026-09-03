@@ -1943,7 +1943,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         isOpen={isBenchmarkOpen}
         onClose={() => setIsBenchmarkOpen(false)}
         rustBackendUrl={config.rustBackendUrl}
-        activeModel={providerStatus.connected && config.model ? config.model : 'Local Hardware GEMM Engine (No Provider Connected)'}
+        activeModel={providerStatus.connected && config.model ? config.model : ''}
+        isConnected={providerStatus.connected}
+        onOpenSettings={handleOpenSettings}
       />
 
       {/* ================= AI NEWS & MODEL RELEASES MODAL ================= */}

@@ -91,12 +91,29 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
+  const [isProxyOnline, setIsProxyOnline] = useState<boolean>(true);
+
   // Update input when active tab changes
   useEffect(() => {
     if (activeTab) {
       setUrlInput(activeTab.url);
     }
   }, [activeTabId]);
+
+  // Check if backend proxy on 127.0.0.1:3001 is reachable
+  useEffect(() => {
+    let isMounted = true;
+    fetch('http://127.0.0.1:3001/api/health', { signal: AbortSignal.timeout(1200) })
+      .then((r) => {
+        if (isMounted) setIsProxyOnline(r.ok);
+      })
+      .catch(() => {
+        if (isMounted) setIsProxyOnline(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   // Execute initial query if opened with an explicit search prompt
   useEffect(() => {
@@ -105,8 +122,6 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
       performSearchOrNavigate(initialQuery);
     }
   }, [isOpen, initialQuery]);
-
-  if (!isOpen) return null;
 
   const updateActiveTab = (updater: Partial<BrowserTab> | ((prev: BrowserTab) => BrowserTab)) => {
     setTabs((prev) =>
@@ -300,6 +315,8 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
       onInsertIntoPrompt(formatted);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <aside
@@ -839,14 +856,32 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                 <span>Loading live webpage...</span>
               </div>
             )}
-            <iframe
-              key={activeTab.url}
-              src={`http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(activeTab.url)}`}
-              className="w-full h-full border-0 flex-1 bg-white min-h-[500px]"
-              title={activeTab.title}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              onLoad={() => setIsLoading(false)}
-            />
+            {activeTab.url ? (
+              <iframe
+                key={activeTab.url}
+                src={
+                  isProxyOnline
+                    ? `http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(activeTab.url)}`
+                    : activeTab.url
+                }
+                className="w-full h-full border-0 flex-1 bg-white min-h-[500px]"
+                title={activeTab.title}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                onLoad={() => setIsLoading(false)}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-3 font-mono text-xs text-zinc-400">
+                <Compass className="w-8 h-8 text-zinc-500 animate-pulse" />
+                <span>No active URL loaded in this tab.</span>
+                <button
+                  type="button"
+                  onClick={handleGoHome}
+                  className="px-3 py-1.5 rounded-xl bg-white text-black font-semibold cursor-pointer"
+                >
+                  Return to Start Page
+                </button>
+              </div>
+            )}
           </div>
         )}
 
