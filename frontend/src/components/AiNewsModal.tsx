@@ -22,6 +22,141 @@ interface AiNewsModalProps {
   onSelectModel?: (modelId: string) => void;
 }
 
+const NewsThumbnailCard: React.FC<{ article: LiveNewsItem }> = ({ article }) => {
+  const [imgError, setImgError] = useState(false);
+  const b = article.companyBadge;
+  const c = article.company.toLowerCase();
+
+  if (article.imageUrl && !imgError) {
+    return (
+      <div className="h-44 w-full relative overflow-hidden bg-zinc-950 border-b border-zinc-800">
+        <img
+          src={article.imageUrl}
+          alt={article.title}
+          onError={() => setImgError(true)}
+          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+        {/* Top Badges Overlay */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-black/85 backdrop-blur-md text-white border border-white/15 shadow-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            {article.companyBadge || 'VERIFIED'}
+          </span>
+          <span className="text-[9px] font-mono text-zinc-200 uppercase bg-black/85 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/15">
+            {article.category}
+          </span>
+        </div>
+        {/* Bottom Dark Gradient to elevate contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+        <div className="absolute bottom-2.5 left-3 right-3 text-[11px] font-mono text-zinc-300 truncate pointer-events-none flex items-center gap-2">
+          <span className="font-bold text-white">{article.company}</span>
+          <span>•</span>
+          <span>{article.date}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback branded banner
+  if (b === 'GOOG' || c.includes('google')) {
+    return (
+      <div className="h-44 w-full rounded-t-2xl bg-gradient-to-br from-blue-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-blue-900/60 transition duration-300">
+        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            GOOGLE DEEPMIND
+          </span>
+          <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
+            {article.category}
+          </span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-base font-extrabold text-white tracking-wide">
+            {article.title.split('Launched')[0].split('Officially')[0].trim()}
+          </div>
+          <div className="text-[10px] font-mono text-blue-300/80">
+            Frontier Multimodal & Reasoning Infrastructure
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (b === 'ANTH' || c.includes('anthropic')) {
+    return (
+      <div className="h-44 w-full rounded-t-2xl bg-gradient-to-br from-amber-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-amber-900/60 transition duration-300">
+        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            ANTHROPIC CLAUDE
+          </span>
+          <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
+            {article.category}
+          </span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-base font-extrabold text-white tracking-wide">
+            {article.title.split('Launched')[0].split('Officially')[0].trim()}
+          </div>
+          <div className="text-[10px] font-mono text-amber-300/80">
+            Constitutional AI & Frontier Reasoning Architecture
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (b === 'META' || c.includes('meta')) {
+    return (
+      <div className="h-44 w-full rounded-t-2xl bg-gradient-to-br from-indigo-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-indigo-900/60 transition duration-300">
+        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            META FAIR
+          </span>
+          <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
+            {article.category}
+          </span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-base font-extrabold text-white tracking-wide">
+            {article.title.split('Launched')[0].split('Officially')[0].trim()}
+          </div>
+          <div className="text-[10px] font-mono text-indigo-300/80">
+            Open Weights Frontier Intelligence
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-44 w-full rounded-t-2xl bg-gradient-to-br from-zinc-800/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-zinc-700/60 transition duration-300">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-zinc-700/40 text-zinc-300 border border-zinc-600">
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          {article.company}
+        </span>
+        <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
+          {article.category}
+        </span>
+      </div>
+      <div className="space-y-1">
+        <div className="text-sm font-bold text-white line-clamp-2">
+          {article.title}
+        </div>
+        <div className="text-[10px] font-mono text-zinc-400">
+          {article.company} • {article.date}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const AiNewsModal: React.FC<AiNewsModalProps> = ({
   isOpen,
   onClose,
@@ -84,131 +219,7 @@ export const AiNewsModal: React.FC<AiNewsModalProps> = ({
   });
 
   const renderThumbnailBadge = (article: LiveNewsItem) => {
-    const b = article.companyBadge;
-    const c = article.company.toLowerCase();
-
-    if (b === 'GOOG' || c.includes('google')) {
-      return (
-        <div className="h-36 w-full rounded-t-2xl bg-gradient-to-br from-blue-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-blue-900/60 transition duration-300">
-          <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              GOOGLE DEEPMIND
-            </span>
-            <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
-              {article.category}
-            </span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-base font-extrabold text-white tracking-wide">
-              {article.title.split('Launched')[0].split('Officially')[0].trim()}
-            </div>
-            <div className="text-[10px] font-mono text-blue-300/80">
-              Frontier Multimodal & Reasoning Infrastructure
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (b === 'ANTH' || c.includes('anthropic')) {
-      return (
-        <div className="h-36 w-full rounded-t-2xl bg-gradient-to-br from-amber-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-amber-900/60 transition duration-300">
-          <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              ANTHROPIC CLAUDE
-            </span>
-            <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
-              {article.category}
-            </span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-base font-extrabold text-white tracking-wide">
-              {article.title.split('Launched')[0].split('Officially')[0].trim()}
-            </div>
-            <div className="text-[10px] font-mono text-amber-300/80">
-              Constitutional AI & Frontier Reasoning Architecture
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (b === 'META' || c.includes('meta')) {
-      return (
-        <div className="h-36 w-full rounded-t-2xl bg-gradient-to-br from-indigo-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-indigo-900/60 transition duration-300">
-          <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              META FAIR
-            </span>
-            <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
-              {article.category}
-            </span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-base font-extrabold text-white tracking-wide">
-              {article.title.split('Launched')[0].split('Officially')[0].trim()}
-            </div>
-            <div className="text-[10px] font-mono text-indigo-300/80">
-              Open Weights Frontier Intelligence
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (b === 'ARX' || c.includes('arxiv')) {
-      return (
-        <div className="h-36 w-full rounded-t-2xl bg-gradient-to-br from-rose-950/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-rose-900/60 transition duration-300">
-          <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              <BookOpen className="w-3 h-3 text-rose-400" />
-              arXiv cs.AI PREPRINT
-            </span>
-            <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
-              Peer Research
-            </span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-white line-clamp-2">
-              {article.title}
-            </div>
-            <div className="text-[10px] font-mono text-rose-300/80">
-              {article.company}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Default Lab Banner
-    return (
-      <div className="h-36 w-full rounded-t-2xl bg-gradient-to-br from-zinc-800/80 via-zinc-900 to-black p-4 flex flex-col justify-between border-b border-zinc-800 relative overflow-hidden group-hover:from-zinc-700/60 transition duration-300">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-zinc-700/40 text-zinc-300 border border-zinc-600">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            {article.company}
-          </span>
-          <span className="text-[9px] font-mono text-zinc-400 uppercase bg-zinc-800/80 px-2 py-0.5 rounded-md">
-            {article.category}
-          </span>
-        </div>
-        <div className="space-y-1">
-          <div className="text-sm font-bold text-white line-clamp-2">
-            {article.title}
-          </div>
-          <div className="text-[10px] font-mono text-zinc-400">
-            {article.company} • {article.date}
-          </div>
-        </div>
-      </div>
-    );
+    return <NewsThumbnailCard article={article} />;
   };
 
   return (
@@ -391,6 +402,16 @@ export const AiNewsModal: React.FC<AiNewsModalProps> = ({
 
             {/* Article Content Body */}
             <div className="p-6 sm:p-8 overflow-y-auto space-y-6 text-sm">
+              {selectedArticle.imageUrl && (
+                <div className="w-full h-48 sm:h-64 rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 relative">
+                  <img
+                    src={selectedArticle.imageUrl}
+                    alt={selectedArticle.title}
+                    className="w-full h-full object-cover object-center"
+                  />
+                </div>
+              )}
+
               <h1 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">
                 {selectedArticle.title}
               </h1>

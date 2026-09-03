@@ -1051,31 +1051,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                   </div>
 
                   {!isEditing && (
-                    <div className="hidden group-hover:flex items-center gap-1 pl-1">
+                    <div
+                      className={`flex items-center gap-0.5 sm:gap-1 pl-1.5 flex-shrink-0 transition-opacity ${
+                        isActive
+                          ? 'opacity-100'
+                          : 'opacity-70 md:opacity-0 md:group-hover:opacity-100'
+                      }`}
+                    >
                       <button
+                        type="button"
                         onClick={(e) => handleTogglePinSession(s.id, e)}
-                        className="p-1 hover:text-white text-zinc-500 transition"
+                        className="p-1.5 rounded-lg hover:bg-zinc-700/50 hover:text-white text-zinc-400 transition cursor-pointer"
                         title={s.isPinned ? 'Unpin' : 'Pin'}
                       >
-                        <Pin className="w-3 h-3" />
+                        <Pin className={`w-3.5 h-3.5 ${s.isPinned ? 'fill-white text-white' : ''}`} />
                       </button>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingSessionId(s.id);
                           setEditTitleInput(s.title);
                         }}
-                        className="p-1 hover:text-white text-zinc-500 transition"
+                        className="p-1.5 rounded-lg hover:bg-zinc-700/50 hover:text-white text-zinc-400 transition cursor-pointer"
                         title="Rename"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
+                        type="button"
                         onClick={(e) => handleDeleteSession(s.id, e)}
-                        className="p-1 hover:text-red-400 text-zinc-500 transition"
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 hover:text-red-400 text-zinc-400 transition cursor-pointer"
                         title="Delete"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}

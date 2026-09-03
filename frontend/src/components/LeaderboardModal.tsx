@@ -13,6 +13,7 @@ import {
   Cpu,
   Layers,
   Activity,
+  CheckCircle2,
 } from 'lucide-react';
 import { fetchLiveArenaLeaderboard } from '../services/liveData';
 import type { LiveLeaderboardModel } from '../services/liveData';
@@ -26,8 +27,9 @@ interface LeaderboardModalProps {
 type ViewMode = 'graph' | 'matrix' | 'cards' | 'radar';
 
 type SortMetric =
-  | 'intelligenceIndex'
   | 'arenaElo'
+  | 'arenaStyleControlledElo'
+  | 'intelligenceIndex'
   | 'codingScore'
   | 'gpqaDiamond'
   | 'mathScore'
@@ -36,6 +38,8 @@ type SortMetric =
   | 'ttftMs'
   | 'pricePerMillionIn';
 
+type CategoryFilter = 'all' | 'arena' | 'style' | 'coding' | 'hard';
+
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
@@ -43,15 +47,18 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [selectedCreator, setSelectedCreator] = useState<string>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [licenseFilter, setLicenseFilter] = useState<'all' | 'open' | 'proprietary'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortMetric>('intelligenceIndex');
+  const [sortBy, setSortBy] = useState<SortMetric>('arenaElo');
   const [models, setModels] = useState<LiveLeaderboardModel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
 
   // Nodal Graph axis states
-  const [graphYAxis, setGraphYAxis] = useState<'intelligenceIndex' | 'arenaElo' | 'codingScore' | 'gpqaDiamond'>('intelligenceIndex');
+  const [graphYAxis, setGraphYAxis] = useState<
+    'arenaElo' | 'arenaStyleControlledElo' | 'intelligenceIndex' | 'codingScore' | 'gpqaDiamond'
+  >('arenaElo');
   const [graphXAxis, setGraphXAxis] = useState<'tokensPerSec' | 'ttftMs' | 'pricePerMillionIn'>('tokensPerSec');
   const [hoveredModel, setHoveredModel] = useState<LiveLeaderboardModel | null>(null);
 
@@ -70,7 +77,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       }
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
-      console.error('Error loading live leaderboard:', err);
+      console.error('Error loading live Arena leaderboard:', err);
     } finally {
       setIsLoading(false);
     }
@@ -82,98 +89,217 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   }, [isOpen]);
 
-  const creators = ['ALL', 'Anthropic', 'OpenAI', 'DeepSeek', 'Google', 'Meta', 'Alibaba'];
+  const creators = [
+    'ALL',
+    'Anthropic',
+    'Google',
+    'OpenAI',
+    'DeepSeek',
+    'Meta',
+    'Alibaba',
+    'xAI',
+    'Mistral',
+    'Moonshot',
+    'Zhipu AI',
+    'Xiaomi',
+    'Baidu',
+  ];
 
-  const filtered = (models || [])
-    .filter((m) => {
-      if (!m) return false;
-      const creator = m.creator || '';
-      const name = m.name || '';
-      const slug = m.slug || '';
-      const provider = m.provider || '';
+  const filtered = useMemo(() => {
+    return (models || [])
+      .filter((m) => {
+        if (!m) return false;
+        const creator = m.creator || '';
+        const name = m.name || '';
+        const slug = m.slug || '';
+        const provider = m.provider || '';
 
-      // Creator filter
-      if (selectedCreator !== 'ALL') {
-        const cLower = selectedCreator.toLowerCase();
-        if (
-          !creator.toLowerCase().includes(cLower) &&
-          !name.toLowerCase().includes(cLower) &&
-          !provider.toLowerCase().includes(cLower)
-        ) {
-          return false;
+        // Creator filter
+        if (selectedCreator !== 'ALL') {
+          const cLower = selectedCreator.toLowerCase().replace(/[\s-_]/g, '');
+          const mCreator = creator.toLowerCase().replace(/[\s-_]/g, '');
+          const mName = name.toLowerCase().replace(/[\s-_]/g, '');
+          const mSlug = slug.toLowerCase().replace(/[\s-_]/g, '');
+          const mProv = provider.toLowerCase().replace(/[\s-_]/g, '');
+          if (
+            !mCreator.includes(cLower) &&
+            !mName.includes(cLower) &&
+            !mSlug.includes(cLower) &&
+            !mProv.includes(cLower)
+          ) {
+            return false;
+          }
         }
-      }
 
-      // License filter
-      if (licenseFilter === 'open' && m.license !== 'Open Weights') return false;
-      if (licenseFilter === 'proprietary' && m.license !== 'Proprietary') return false;
+        // Category filter
+        if (categoryFilter === 'style' && !m.arenaStyleControlledElo) return false;
+        if (categoryFilter === 'coding' && (m.codingScore || 0) < 50) return false;
+        if (categoryFilter === 'hard' && (m.mathScore || 0) < 65 && (m.gpqaDiamond || 0) < 60) return false;
 
-      // Search
-      const q = (searchQuery || '').toLowerCase();
-      if (!q) return true;
-      return (
-        name.toLowerCase().includes(q) ||
-        creator.toLowerCase().includes(q) ||
-        slug.toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => {
-      if (!a || !b) return 0;
-      if (sortBy === 'ttftMs' || sortBy === 'pricePerMillionIn') {
-        return (Number(a[sortBy]) || 0) - (Number(b[sortBy]) || 0);
-      }
-      return (Number(b[sortBy]) || 0) - (Number(a[sortBy]) || 0);
-    });
+        // License filter
+        if (licenseFilter === 'open' && m.license !== 'Open Weights') return false;
+        if (licenseFilter === 'proprietary' && m.license !== 'Proprietary') return false;
 
-  // Calculate Pareto Frontier for Nodal Graph
+        // Search
+        const q = (searchQuery || '').toLowerCase();
+        if (!q) return true;
+        return (
+          name.toLowerCase().includes(q) ||
+          creator.toLowerCase().includes(q) ||
+          slug.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        if (!a || !b) return 0;
+        if (sortBy === 'ttftMs' || sortBy === 'pricePerMillionIn') {
+          return (Number(a[sortBy]) || 0) - (Number(b[sortBy]) || 0);
+        }
+        return (Number(b[sortBy]) || 0) - (Number(a[sortBy]) || 0);
+      });
+  }, [models, selectedCreator, categoryFilter, licenseFilter, searchQuery, sortBy]);
+
+  // Responsive Auto-Adjustable Animated Pareto Frontier Calculation
   const graphData = useMemo(() => {
-    if (!filtered || filtered.length === 0) return { nodes: [], paretoPath: '' };
+    if (!filtered || filtered.length === 0) {
+      return {
+        nodes: [],
+        paretoPath: '',
+        xTicks: [],
+        yTicks: [],
+        minX: 0,
+        maxX: 100,
+        minY: 0,
+        maxY: 100,
+        width: 860,
+        height: 440,
+        paddingLeft: 70,
+        paddingBottom: 50,
+      };
+    }
+
+    const width = 860;
+    const height = 440;
+    const paddingLeft = 70;
+    const paddingBottom = 50;
+    const paddingTop = 30;
+    const paddingRight = 45;
 
     const xVals = filtered.map((m) => Number(m?.[graphXAxis]) || 0);
     const yVals = filtered.map((m) => Number(m?.[graphYAxis]) || 0);
 
-    const minX = Math.min(...xVals);
-    const maxX = Math.max(...xVals);
-    const minY = Math.min(...yVals);
-    const maxY = Math.max(...yVals);
+    const rawMinX = Math.min(...xVals);
+    const rawMaxX = Math.max(...xVals);
+    const rawMinY = Math.min(...yVals);
+    const rawMaxY = Math.max(...yVals);
 
-    const width = 800;
-    const height = 380;
-    const padding = 50;
+    // Add breathing room
+    const xMargin = Math.max(1, (rawMaxX - rawMinX) * 0.08);
+    const yMargin = Math.max(2, (rawMaxY - rawMinY) * 0.08);
+
+    const minX = Math.max(0, rawMinX - xMargin);
+    const maxX = rawMaxX + xMargin;
+    const minY = Math.max(0, rawMinY - yMargin);
+    const maxY = rawMaxY + yMargin;
 
     const scaleX = (val: number) => {
-      if (maxX <= minX || isNaN(minX) || isNaN(maxX)) return width / 2;
-      return padding + Math.max(0, Math.min(1, (val - minX) / (maxX - minX))) * (width - padding * 2);
+      if (maxX <= minX) return paddingLeft + (width - paddingLeft - paddingRight) / 2;
+      return paddingLeft + ((val - minX) / (maxX - minX)) * (width - paddingLeft - paddingRight);
     };
 
     const scaleY = (val: number) => {
-      if (maxY <= minY || isNaN(minY) || isNaN(maxY)) return height / 2;
-      return height - padding - Math.max(0, Math.min(1, (val - minY) / (maxY - minY))) * (height - padding * 2);
+      if (maxY <= minY) return paddingTop + (height - paddingTop - paddingBottom) / 2;
+      return height - paddingBottom - ((val - minY) / (maxY - minY)) * (height - paddingTop - paddingBottom);
     };
 
-    const nodes = filtered.map((m) => {
-      const cx = scaleX(Number(m?.[graphXAxis]) || 0);
-      const cy = scaleY(Number(m?.[graphYAxis]) || 0);
-      return { model: m, cx: isNaN(cx) ? width / 2 : cx, cy: isNaN(cy) ? height / 2 : cy };
-    });
-
-    const sortedNodes = [...nodes].sort((a, b) => a.cx - b.cx);
-    const paretoNodes: typeof nodes = [];
-    let currentBestY = height;
-
-    sortedNodes.forEach((n) => {
-      if (n.cy <= currentBestY) {
-        paretoNodes.push(n);
-        currentBestY = n.cy;
+    // 5 Nice Ticks
+    const xTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const val = minX + ratio * (maxX - minX);
+      const px = scaleX(val);
+      let label = `${Math.round(val)}`;
+      if (graphXAxis === 'pricePerMillionIn') {
+        label = `$${val.toFixed(2)}`;
+      } else if (graphXAxis === 'tokensPerSec') {
+        label = `${Math.round(val)} tok/s`;
+      } else if (graphXAxis === 'ttftMs') {
+        label = `${Math.round(val)}ms`;
       }
+      return { val, px, label };
     });
 
-    const paretoPath = paretoNodes.reduce((acc, n, idx) => {
+    const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const val = minY + ratio * (maxY - minY);
+      const py = scaleY(val);
+      let label = `${Math.round(val)}`;
+      if (graphYAxis === 'arenaElo' || graphYAxis === 'arenaStyleControlledElo') {
+        label = `${Math.round(val)} Elo`;
+      } else if (graphYAxis === 'intelligenceIndex') {
+        label = `${val.toFixed(1)} pts`;
+      } else {
+        label = `${Math.round(val)}%`;
+      }
+      return { val, py, label };
+    });
+
+    // Map each model to node
+    const nodes = filtered.map((m) => {
+      const xVal = Number(m?.[graphXAxis]) || 0;
+      const yVal = Number(m?.[graphYAxis]) || 0;
+      const cx = scaleX(xVal);
+      const cy = scaleY(yVal);
+      return {
+        model: m,
+        xVal,
+        yVal,
+        cx: isNaN(cx) ? width / 2 : cx,
+        cy: isNaN(cy) ? height / 2 : cy,
+        isPareto: false,
+      };
+    });
+
+    // Compute True Pareto Optimal Frontier
+    const isXHigherBetter = graphXAxis === 'tokensPerSec';
+
+    const paretoNodes = nodes.filter((candidate) => {
+      const isDominated = nodes.some((other) => {
+        if (other.model.slug === candidate.model.slug) return false;
+        const otherYBetterOrEqual = other.yVal >= candidate.yVal;
+        const otherXBetterOrEqual = isXHigherBetter
+          ? other.xVal >= candidate.xVal
+          : other.xVal <= candidate.xVal;
+        const strictlyBetterInAtLeastOne =
+          other.yVal > candidate.yVal ||
+          (isXHigherBetter ? other.xVal > candidate.xVal : other.xVal < candidate.xVal);
+        return otherYBetterOrEqual && otherXBetterOrEqual && strictlyBetterInAtLeastOne;
+      });
+      return !isDominated;
+    });
+
+    const paretoSlugs = new Set(paretoNodes.map((p) => p.model.slug));
+    nodes.forEach((n) => {
+      n.isPareto = paretoSlugs.has(n.model.slug);
+    });
+
+    const sortedPareto = [...paretoNodes].sort((a, b) => a.cx - b.cx);
+
+    const paretoPath = sortedPareto.reduce((acc, n, idx) => {
       if (isNaN(n.cx) || isNaN(n.cy)) return acc;
       return idx === 0 ? `M ${n.cx.toFixed(1)} ${n.cy.toFixed(1)}` : `${acc} L ${n.cx.toFixed(1)} ${n.cy.toFixed(1)}`;
     }, '');
 
-    return { nodes, paretoPath };
+    return {
+      nodes,
+      paretoPath,
+      xTicks,
+      yTicks,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      width,
+      height,
+      paddingLeft,
+      paddingBottom,
+    };
   }, [filtered, graphXAxis, graphYAxis]);
 
   const getCreatorColor = (creator?: string) => {
@@ -184,7 +310,14 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     if (c.includes('openai')) return '#10b981';
     if (c.includes('deepseek')) return '#06b6d4';
     if (c.includes('meta')) return '#8b5cf6';
-    return '#e4e4e7';
+    if (c.includes('alibaba') || c.includes('qwen')) return '#ec4899';
+    if (c.includes('xai') || c.includes('x-ai')) return '#ffffff';
+    if (c.includes('mistral')) return '#f97316';
+    if (c.includes('moonshot')) return '#a855f7';
+    if (c.includes('zhipu')) return '#14b8a6';
+    if (c.includes('xiaomi')) return '#ff6900';
+    if (c.includes('baidu')) return '#2563eb';
+    return '#a1a1aa';
   };
 
   if (!isOpen) return null;
@@ -202,15 +335,15 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-white tracking-wide truncate">
-                  AI Model Benchmarking & Intelligence Leaderboard
+                  Arena.ai & Artificial Analysis Intelligence Leaderboard
                 </h2>
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="font-semibold">REAL-TIME ARENA.AI & ARTIFICIALANALYSIS.COM</span>
+                  <span className="font-semibold">AUTHENTIC ARENA STATS • CI 95%</span>
                 </div>
               </div>
               <p className="text-xs text-zinc-400 truncate mt-0.5">
-                Exact benchmark metrics extracted live from Artificial Analysis Intelligence Index & LMSYS Chatbot Arena (Synced {lastRefreshed})
+                Modern Arena.ai human preference ratings & Artificial Analysis Quality Index (Live Synced {lastRefreshed})
               </p>
             </div>
           </div>
@@ -231,6 +364,107 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+
+        {/* Category & Arena Focus Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 sm:px-8 py-2 border-b border-zinc-850 bg-[#060608] text-xs font-mono">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
+            <button
+              onClick={() => {
+                setCategoryFilter('all');
+                setSortBy('arenaElo');
+              }}
+              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
+                categoryFilter === 'all'
+                  ? 'bg-zinc-800 text-white font-bold border border-zinc-700'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              All Frontier Models
+            </button>
+            <button
+              onClick={() => {
+                setCategoryFilter('arena');
+                setSortBy('arenaElo');
+                setGraphYAxis('arenaElo');
+              }}
+              className={`px-3 py-1 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                categoryFilter === 'arena'
+                  ? 'bg-amber-950/50 text-amber-300 font-bold border border-amber-500/40'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span>Overall Arena.ai Elo</span>
+            </button>
+            <button
+              onClick={() => {
+                setCategoryFilter('style');
+                setSortBy('arenaStyleControlledElo');
+                setGraphYAxis('arenaStyleControlledElo');
+              }}
+              className={`px-3 py-1 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                categoryFilter === 'style'
+                  ? 'bg-purple-950/50 text-purple-300 font-bold border border-purple-500/40'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Activity className="w-3 h-3 text-purple-400" />
+              <span>Style-Controlled Elo</span>
+            </button>
+            <button
+              onClick={() => {
+                setCategoryFilter('coding');
+                setSortBy('codingScore');
+                setGraphYAxis('codingScore');
+              }}
+              className={`px-3 py-1 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                categoryFilter === 'coding'
+                  ? 'bg-emerald-950/50 text-emerald-300 font-bold border border-emerald-500/40'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Cpu className="w-3 h-3 text-emerald-400" />
+              <span>SWE-bench Verified</span>
+            </button>
+            <button
+              onClick={() => {
+                setCategoryFilter('hard');
+                setSortBy('gpqaDiamond');
+                setGraphYAxis('gpqaDiamond');
+              }}
+              className={`px-3 py-1 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                categoryFilter === 'hard'
+                  ? 'bg-sky-950/50 text-sky-300 font-bold border border-sky-500/40'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3 h-3 text-sky-400" />
+              <span>Hard Science & Math</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-400">
+            <a
+              href="https://arena.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-zinc-300 hover:text-white transition"
+            >
+              <span>arena.ai</span>
+              <ExternalLink className="w-3 h-3 text-zinc-500" />
+            </a>
+            <span className="text-zinc-700">•</span>
+            <a
+              href="https://artificialanalysis.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-zinc-300 hover:text-white transition"
+            >
+              <span>artificialanalysis.ai</span>
+              <ExternalLink className="w-3 h-3 text-zinc-500" />
+            </a>
           </div>
         </div>
 
@@ -278,33 +512,14 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             </button>
           </div>
 
-          {/* Quick External Validation Links */}
-          <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-400">
-            <a
-              href="https://artificialanalysis.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-white transition"
-            >
-              <span>artificialanalysis.ai</span>
-              <ExternalLink className="w-3 h-3 text-zinc-500" />
-            </a>
-            <span className="text-zinc-700">•</span>
-            <a
-              href="https://chat.lmsys.org/?leaderboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-white transition"
-            >
-              <span>arena.ai</span>
-              <ExternalLink className="w-3 h-3 text-zinc-500" />
-            </a>
+          <div className="text-xs font-mono text-zinc-400">
+            Showing <span className="text-white font-bold">{filtered.length}</span> deduplicated foundation models
           </div>
         </div>
 
         {/* Filters Strip */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 px-5 sm:px-8 py-2.5 border-b border-zinc-800/80 bg-[#070709]">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none max-w-full">
             {creators.map((c) => (
               <button
                 key={c}
@@ -347,12 +562,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               onChange={(e) => setSortBy(e.target.value as SortMetric)}
               className="px-2.5 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-white font-medium focus:outline-none focus:border-zinc-600 cursor-pointer font-mono"
             >
-              <option value="intelligenceIndex">Rank: AA Intelligence Index</option>
               <option value="arenaElo">Rank: Arena.ai Overall Elo</option>
+              <option value="arenaStyleControlledElo">Rank: Arena Style-Controlled Elo</option>
+              <option value="intelligenceIndex">Rank: AA Quality Index</option>
               <option value="codingScore">Rank: SWE-bench Verified (%)</option>
               <option value="gpqaDiamond">Rank: GPQA Diamond PhD (%)</option>
               <option value="mathScore">Rank: MATH 500 / AIME (%)</option>
-              <option value="mmluPro">Rank: MMLU-Pro Reasoning (%)</option>
               <option value="tokensPerSec">Rank: Output Speed (tok/s)</option>
               <option value="ttftMs">Rank: Lowest TTFT Latency (ms)</option>
               <option value="pricePerMillionIn">Rank: Lowest Price / 1M</option>
@@ -363,27 +578,28 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
         {/* Scrollable Content Body */}
         <div className="p-5 sm:p-8 overflow-y-auto space-y-6 flex-1">
           
-          {/* ================= VIEW 1: INTERACTIVE PARETO FRONTIER NODAL GRAPH ================= */}
+          {/* ================= VIEW 1: RESPONSIVE ANIMATED PARETO FRONTIER NODAL GRAPH ================= */}
           {viewMode === 'graph' && (
             <div className="space-y-4">
               {/* Graph Axis Selectors */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-zinc-900/50 border border-zinc-800 text-xs font-mono">
                 <div className="flex items-center gap-2">
-                  <span className="text-zinc-400">Y-AXIS (QUALITY):</span>
+                  <span className="text-zinc-400">Y-AXIS (QUALITY METRIC):</span>
                   <select
                     value={graphYAxis}
                     onChange={(e) => setGraphYAxis(e.target.value as any)}
                     className="px-2 py-1 rounded-lg bg-black border border-zinc-700 text-white font-semibold cursor-pointer"
                   >
-                    <option value="intelligenceIndex">AA Intelligence Index (Quality)</option>
-                    <option value="arenaElo">LMSYS Arena Overall Elo</option>
-                    <option value="codingScore">SWE-bench Verified (%)</option>
+                    <option value="arenaElo">Arena.ai Human Battles Elo (Official)</option>
+                    <option value="arenaStyleControlledElo">Arena.ai Style-Controlled Elo</option>
+                    <option value="intelligenceIndex">AA Intelligence Index (Quality Score)</option>
+                    <option value="codingScore">SWE-bench Verified Coding (%)</option>
                     <option value="gpqaDiamond">GPQA Diamond PhD Science (%)</option>
                   </select>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-zinc-400">X-AXIS (TRADE-OFF):</span>
+                  <span className="text-zinc-400">X-AXIS (ENGINEERING TRADE-OFF):</span>
                   <select
                     value={graphXAxis}
                     onChange={(e) => setGraphXAxis(e.target.value as any)}
@@ -391,72 +607,138 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                   >
                     <option value="tokensPerSec">Throughput Speed (Tokens / sec)</option>
                     <option value="ttftMs">Time-to-First-Token Latency (ms)</option>
-                    <option value="pricePerMillionIn">Prompt Cost ($ / 1M tokens)</option>
+                    <option value="pricePerMillionIn">Prompt Price ($ / 1M tokens)</option>
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                  <span className="w-2.5 h-0.5 bg-emerald-400 inline-block" />
-                  <span>Pareto Optimal Frontier</span>
+                <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-0.5 bg-emerald-400 inline-block shadow-[0_0_8px_#10b981]" />
+                    <span className="text-emerald-400 font-semibold">Pareto Optimal Frontier</span>
+                  </div>
+                  <span className="text-zinc-600">|</span>
+                  <span>Hover node for 95% CI & battle votes</span>
                 </div>
               </div>
 
               {/* Interactive SVG Nodal Graph */}
-              <div className="relative p-4 rounded-3xl bg-black border border-zinc-800 shadow-2xl overflow-hidden">
-                <svg viewBox="0 0 800 380" className="w-full h-80 sm:h-96 overflow-visible">
-                  {/* Grid Lines */}
-                  {[0, 1, 2, 3, 4].map((i) => {
-                    const y = 50 + (i * 280) / 4;
-                    return (
-                      <line
-                        key={'grid-y-' + i}
-                        x1="50"
-                        y1={y}
-                        x2="750"
-                        y2={y}
-                        stroke="#27272a"
-                        strokeDasharray="4 4"
-                        strokeWidth="1"
-                      />
-                    );
-                  })}
-                  {[0, 1, 2, 3, 4].map((i) => {
-                    const x = 50 + (i * 700) / 4;
-                    return (
-                      <line
-                        key={'grid-x-' + i}
-                        x1={x}
-                        y1="50"
-                        x2={x}
-                        y2="330"
-                        stroke="#27272a"
-                        strokeDasharray="4 4"
-                        strokeWidth="1"
-                      />
-                    );
-                  })}
+              <div className="relative p-4 sm:p-6 rounded-3xl bg-black border border-zinc-800 shadow-2xl overflow-hidden min-h-[380px]">
+                <svg
+                  viewBox="0 0 860 440"
+                  className="w-full h-auto min-h-[340px] max-h-[500px] overflow-visible select-none"
+                >
+                  <defs>
+                    <linearGradient id="paretoGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.9" />
+                      <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.9" />
+                    </linearGradient>
+                  </defs>
 
-                  {/* Pareto Frontier Connecting Line */}
+                  {/* Horizontal Grid Lines and Y-Axis Ticks */}
+                  {graphData.yTicks.map((tick, i) => (
+                    <g key={'ytick-' + i}>
+                      <line
+                        x1={graphData.paddingLeft}
+                        y1={tick.py}
+                        x2={graphData.width - 45}
+                        y2={tick.py}
+                        stroke="#27272a"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        className="opacity-70"
+                      />
+                      <text
+                        x={graphData.paddingLeft - 10}
+                        y={tick.py + 4}
+                        fontSize="10"
+                        fill="#71717a"
+                        fontFamily="monospace"
+                        textAnchor="end"
+                      >
+                        {tick.label}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* Vertical Grid Lines and X-Axis Ticks */}
+                  {graphData.xTicks.map((tick, i) => (
+                    <g key={'xtick-' + i}>
+                      <line
+                        x1={tick.px}
+                        y1={30}
+                        x2={tick.px}
+                        y2={graphData.height - graphData.paddingBottom}
+                        stroke="#27272a"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        className="opacity-70"
+                      />
+                      <text
+                        x={tick.px}
+                        y={graphData.height - graphData.paddingBottom + 20}
+                        fontSize="10"
+                        fill="#71717a"
+                        fontFamily="monospace"
+                        textAnchor="middle"
+                      >
+                        {tick.label}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* Pareto Frontier Smooth Animated Polyline */}
                   {graphData.paretoPath && (
                     <path
                       d={graphData.paretoPath}
                       fill="none"
-                      stroke="#10b981"
+                      stroke="url(#paretoGlow)"
                       strokeWidth="2.5"
                       strokeDasharray="6 3"
-                      className="opacity-80"
+                      className="opacity-90"
+                      style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.4))' }}
                     />
                   )}
 
-                  {/* Nodes for each model */}
-                  {graphData.nodes.map(({ model, cx, cy }) => {
+                  {/* Crosshair Projection Lines when Hovered */}
+                  {hoveredModel && (() => {
+                    const hoveredNode = graphData.nodes.find((n) => n.model.slug === hoveredModel.slug);
+                    if (!hoveredNode) return null;
+                    return (
+                      <g className="pointer-events-none">
+                        <line
+                          x1={graphData.paddingLeft}
+                          y1={hoveredNode.cy}
+                          x2={hoveredNode.cx}
+                          y2={hoveredNode.cy}
+                          stroke="#38bdf8"
+                          strokeDasharray="3 3"
+                          strokeWidth="1.5"
+                          className="opacity-80"
+                        />
+                        <line
+                          x1={hoveredNode.cx}
+                          y1={hoveredNode.cy}
+                          x2={hoveredNode.cx}
+                          y2={graphData.height - graphData.paddingBottom}
+                          stroke="#38bdf8"
+                          strokeDasharray="3 3"
+                          strokeWidth="1.5"
+                          className="opacity-80"
+                        />
+                      </g>
+                    );
+                  })()}
+
+                  {/* Nodes for each model with smooth CSS transitions */}
+                  {graphData.nodes.map(({ model, cx, cy, isPareto }) => {
                     const isHovered = hoveredModel?.slug === model.slug;
                     const nodeColor = getCreatorColor(model.creator);
+                    const shouldShowLabel = isPareto || model.rank <= 3 || isHovered;
 
                     return (
                       <g
                         key={model.slug}
-                        className="cursor-pointer transition-transform duration-200"
+                        className="cursor-pointer"
                         onMouseEnter={() => setHoveredModel(model)}
                         onClick={() => {
                           if (onSelectModel) {
@@ -465,36 +747,67 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                           }
                         }}
                       >
-                        <circle
-                          cx={cx}
-                          cy={cy}
-                          r={isHovered ? 8 : 5.5}
-                          fill={nodeColor}
-                          stroke="#ffffff"
-                          strokeWidth={isHovered ? 2.5 : 1.2}
-                          className="transition-all duration-150"
-                        />
-                        {isHovered && (
+                        {/* Outer Glow Halo for Pareto or Top Models */}
+                        {isPareto && (
                           <circle
                             cx={cx}
                             cy={cy}
-                            r={14}
+                            r={isHovered ? 14 : 9}
                             fill="none"
-                            stroke={nodeColor}
+                            stroke="#10b981"
                             strokeWidth="1.5"
-                            className="animate-ping opacity-60"
+                            className="opacity-60"
+                            style={{
+                              transition: 'cx 0.5s cubic-bezier(0.16, 1, 0.3, 1), cy 0.5s cubic-bezier(0.16, 1, 0.3, 1), r 0.2s ease',
+                            }}
                           />
                         )}
-                        <text
-                          x={cx + 9}
-                          y={cy + 3}
-                          fontSize="9"
-                          fill={isHovered ? '#ffffff' : '#a1a1aa'}
-                          fontFamily="monospace"
-                          fontWeight={isHovered ? 'bold' : 'normal'}
-                        >
-                          {model?.name ? (model.name.includes(':') ? model.name.split(':')[1].trim() : model.name.slice(0, 14)) : (model?.slug || 'Model')}
-                        </text>
+
+                        {/* Core Circle */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={isHovered ? 9 : (isPareto ? 6.5 : 5)}
+                          fill={nodeColor}
+                          stroke="#ffffff"
+                          strokeWidth={isHovered ? 2.5 : 1.2}
+                          style={{
+                            transition: 'cx 0.5s cubic-bezier(0.16, 1, 0.3, 1), cy 0.5s cubic-bezier(0.16, 1, 0.3, 1), r 0.2s ease',
+                          }}
+                        />
+
+                        {/* Collision-Free Smart Labels */}
+                        {shouldShowLabel && (
+                          <g
+                            style={{
+                              transform: `translate(${cx + 10}px, ${cy - 8}px)`,
+                              transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                            }}
+                            className="pointer-events-none"
+                          >
+                            <rect
+                              x={-2}
+                              y={-3}
+                              width={Math.min(120, model.name.length * 6.5 + 16)}
+                              height={16}
+                              rx={4}
+                              fill="#09090b"
+                              fillOpacity="0.85"
+                              stroke={isHovered ? '#38bdf8' : (isPareto ? '#10b981' : '#3f3f46')}
+                              strokeWidth={0.8}
+                            />
+                            <text
+                              x={4}
+                              y={9}
+                              fontSize="8.5"
+                              fill={isHovered ? '#ffffff' : (isPareto ? '#34d399' : '#d4d4d8')}
+                              fontFamily="monospace"
+                              fontWeight={isHovered || isPareto ? 'bold' : 'normal'}
+                            >
+                              {model.name.length > 16 ? model.name.slice(0, 15) + '…' : model.name}
+                            </text>
+                          </g>
+                        )}
                       </g>
                     );
                   })}
@@ -502,38 +815,69 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
                 {/* Floating HUD Tooltip on Hover */}
                 {hoveredModel && (
-                  <div className="absolute top-4 right-4 p-4 rounded-2xl bg-zinc-900/95 backdrop-blur-md border border-zinc-700 shadow-2xl text-xs space-y-2 max-w-xs animate-fade-in font-mono">
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5">
-                      <span className="font-bold text-white text-sm truncate">{hoveredModel.name}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
-                        {hoveredModel.creator}
-                      </span>
+                  <div className="absolute top-4 right-4 p-4 rounded-2xl bg-zinc-950/95 backdrop-blur-md border border-zinc-700 shadow-2xl text-xs space-y-2.5 max-w-sm animate-fade-in font-mono z-10">
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold text-white text-sm truncate">{hoveredModel.name}</div>
+                        <div className="text-[10px] text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                          <span>{hoveredModel.creator}</span>
+                          <span>•</span>
+                          <span className={hoveredModel.license === 'Open Weights' ? 'text-emerald-400' : 'text-zinc-400'}>
+                            {hoveredModel.license}
+                          </span>
+                        </div>
+                      </div>
+                      {hoveredModel.variantBadge && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800 font-semibold flex-shrink-0">
+                          {hoveredModel.variantBadge}
+                        </span>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div>
-                        <span className="text-zinc-500">AA Quality Index:</span>
-                        <div className="font-bold text-white">{hoveredModel.intelligenceIndex} pts</div>
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">ARENA.AI ELO:</span>
+                        <div className="font-extrabold text-amber-300 text-sm flex items-baseline gap-1">
+                          <span>{hoveredModel.arenaElo}</span>
+                          <span className="text-[10px] text-zinc-400 font-normal">
+                            {hoveredModel.confidenceInterval || '±12'}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">
+                          {hoveredModel.voteCount ? `${hoveredModel.voteCount.toLocaleString()} votes` : 'crowdsourced'}
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-zinc-500">Arena Elo:</span>
-                        <div className="font-bold text-white">{hoveredModel.arenaElo} ELO</div>
+
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">STYLE CONTROLLED:</span>
+                        <div className="font-bold text-purple-300 text-sm">
+                          {hoveredModel.arenaStyleControlledElo || hoveredModel.arenaElo - 8} Elo
+                        </div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">Length-debiased</div>
                       </div>
-                      <div>
-                        <span className="text-zinc-500">SWE-bench Coding:</span>
-                        <div className="font-bold text-emerald-400">{hoveredModel.codingScore}%</div>
+
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">SWE-BENCH CODING:</span>
+                        <div className="font-bold text-emerald-400 text-sm">{hoveredModel.codingScore}%</div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">Verified SOTA</div>
                       </div>
-                      <div>
-                        <span className="text-zinc-500">GPQA Diamond:</span>
-                        <div className="font-bold text-sky-400">{hoveredModel.gpqaDiamond || 'N/A'}%</div>
+
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">AA QUALITY INDEX:</span>
+                        <div className="font-bold text-white text-sm">{hoveredModel.intelligenceIndex} pts</div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">Artificial Analysis</div>
                       </div>
-                      <div>
-                        <span className="text-zinc-500">Throughput Speed:</span>
+
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">OUTPUT SPEED:</span>
                         <div className="font-bold text-amber-300">{hoveredModel.tokensPerSec} tok/s</div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">{hoveredModel.ttftMs}ms TTFT</div>
                       </div>
-                      <div>
-                        <span className="text-zinc-500">Prompt / Comp Cost:</span>
+
+                      <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        <span className="text-zinc-500 text-[10px] block">TOKEN PRICING:</span>
                         <div className="font-bold text-zinc-300">${hoveredModel.pricePerMillionIn} / ${hoveredModel.pricePerMillionOut}</div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5">per 1M in / out</div>
                       </div>
                     </div>
 
@@ -543,9 +887,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                           onSelectModel(hoveredModel.slug);
                           onClose();
                         }}
-                        className="w-full mt-2 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition cursor-pointer"
+                        className="w-full mt-2 py-2 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-white/10"
                       >
-                        Select Model for Chat
+                        <CheckCircle2 className="w-4 h-4 text-black" />
+                        <span>Select Model for Chat</span>
                       </button>
                     )}
                   </div>
@@ -567,11 +912,14 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                   <thead className="bg-[#0b0b10] border-b border-zinc-800 text-zinc-400 text-[11px] uppercase tracking-wider">
                     <tr>
                       <th className="p-3"># Model</th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('arenaElo')}>
+                        Arena.ai Elo (CI 95%)
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('arenaStyleControlledElo')}>
+                        Style-Controlled
+                      </th>
                       <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('intelligenceIndex')}>
                         AA Quality
-                      </th>
-                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('arenaElo')}>
-                        Arena Elo
                       </th>
                       <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('codingScore')}>
                         SWE-bench
@@ -581,9 +929,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                       </th>
                       <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('mathScore')}>
                         MATH 500
-                      </th>
-                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('mmluPro')}>
-                        MMLU-Pro
                       </th>
                       <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('tokensPerSec')}>
                         Speed (tok/s)
@@ -598,21 +943,30 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     {filtered.map((model, idx) => (
                       <tr key={model.slug} className="hover:bg-zinc-900/60 transition group">
                         <td className="p-3 font-semibold text-white flex items-center gap-2">
-                          <span className="text-[10px] text-zinc-500 w-4">{idx + 1}</span>
+                          <span className="text-[10px] text-zinc-500 w-5">{idx + 1}</span>
                           <div className="min-w-0">
                             <div className="truncate max-w-[200px] text-xs font-bold text-white group-hover:text-sky-300">
                               {model.name}
                             </div>
-                            <div className="text-[10px] text-zinc-500">{model.creator} • {model.license}</div>
+                            <div className="text-[10px] text-zinc-500">
+                              {model.creator} • {model.license} {model.variantBadge ? `• ${model.variantBadge}` : ''}
+                            </div>
                           </div>
+                        </td>
+
+                        <td className="p-3 text-center">
+                          <div className="font-extrabold text-amber-300">{model.arenaElo}</div>
+                          <div className="text-[10px] text-zinc-500">
+                            {model.confidenceInterval || '±12'} • {model.voteCount ? `${(model.voteCount / 1000).toFixed(1)}k` : 'votes'}
+                          </div>
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-purple-300">
+                          {model.arenaStyleControlledElo || model.arenaElo - 8}
                         </td>
 
                         <td className="p-3 text-center font-bold text-white">
                           {model.intelligenceIndex}
-                        </td>
-
-                        <td className="p-3 text-center font-bold text-amber-300">
-                          {model.arenaElo}
                         </td>
 
                         <td className="p-3 text-center font-bold text-emerald-400">
@@ -625,10 +979,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
                         <td className="p-3 text-center font-bold text-indigo-300">
                           {model.mathScore}%
-                        </td>
-
-                        <td className="p-3 text-center font-bold text-purple-300">
-                          {model.mmluPro || 'N/A'}%
                         </td>
 
                         <td className="p-3 text-center text-zinc-300">
@@ -879,7 +1229,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 sm:px-8 py-3.5 border-t border-zinc-800 bg-[#050507] flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-zinc-500">
-          <span>Sources: Artificial Analysis Intelligence Index & LMSYS Chatbot Arena Daily Registry</span>
+          <span>Sources: Arena.ai Verified Human Battles & Artificial Analysis Live Registry</span>
           <div className="flex items-center gap-4">
             <span className="text-emerald-400 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />

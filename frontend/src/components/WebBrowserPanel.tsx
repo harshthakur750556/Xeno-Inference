@@ -47,7 +47,7 @@ const DEFAULT_BOOKMARKS = [
   { name: 'arXiv cs.AI', url: 'https://arxiv.org/list/cs.AI/recent', tag: 'Preprints', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
   { name: 'Hugging Face', url: 'https://huggingface.co/papers', tag: 'Daily Papers', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   { name: 'Artificial Analysis', url: 'https://artificialanalysis.ai', tag: 'Benchmarks', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  { name: 'LMSYS Arena', url: 'https://chat.lmsys.org', tag: 'Leaderboard', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  { name: 'Arena.ai', url: 'https://arena.ai', tag: 'Leaderboard', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
   { name: 'DeepMind Research', url: 'https://deepmind.google/research/', tag: 'Frontier AI', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
   { name: 'Anthropic Research', url: 'https://anthropic.com/research', tag: 'Alignment', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
   { name: 'OpenAI Research', url: 'https://openai.com/research', tag: 'Reasoning', color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
@@ -850,6 +850,42 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         {/* ================= VIEW 4: EMBEDDED LIVE WEBPAGE (FULL WEB BROWSING IN PANEL) ================= */}
         {activeTab.view === 'webpage' && (
           <div className="flex-1 w-full h-full min-h-[500px] relative bg-[#09090d] flex flex-col overflow-hidden">
+            {/* Action Bar for Embedded Pages */}
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0b0b10] border-b border-zinc-800 text-xs font-mono">
+              <div className="flex items-center gap-2 min-w-0 pr-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                <span className="truncate text-zinc-300 max-w-[200px] sm:max-w-md">{activeTab.url}</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleOpenReader({
+                      title: activeTab.title || 'Reader View',
+                      url: activeTab.url,
+                      snippet: '',
+                      domain: '',
+                    })
+                  }
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs transition cursor-pointer"
+                  title="Extract clean markdown reader via Jina AI"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Reader Mode</span>
+                </button>
+                <a
+                  href={activeTab.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs transition cursor-pointer"
+                  title="Open directly in new browser window"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="hidden sm:inline">External</span>
+                </a>
+              </div>
+            </div>
+
             {isLoading && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm text-xs font-mono text-zinc-300 gap-2">
                 <RotateCw className="w-5 h-5 animate-spin text-white" />
@@ -864,7 +900,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                     ? `http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(activeTab.url)}`
                     : activeTab.url
                 }
-                className="w-full h-full border-0 flex-1 bg-white min-h-[500px]"
+                className="w-full h-full border-0 flex-1 bg-white min-h-[450px]"
                 title={activeTab.title}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 onLoad={() => setIsLoading(false)}
@@ -882,6 +918,25 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Smart Iframe Fallback Hint */}
+            <div className="px-3 sm:px-4 py-1.5 bg-black border-t border-zinc-800 text-[10px] sm:text-[11px] font-mono text-zinc-500 flex items-center justify-between">
+              <span className="truncate">Sites with X-Frame-Options (arXiv, Google, GitHub) block iframes. Switch to Reader Mode for markdown.</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleOpenReader({
+                    title: activeTab.title || 'Reader View',
+                    url: activeTab.url,
+                    snippet: '',
+                    domain: '',
+                  })
+                }
+                className="text-sky-400 hover:text-sky-300 font-semibold cursor-pointer ml-2 flex-shrink-0"
+              >
+                Reader Mode →
+              </button>
+            </div>
           </div>
         )}
 
