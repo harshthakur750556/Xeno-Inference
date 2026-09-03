@@ -41,14 +41,16 @@ export interface InferenceMetrics {
 export interface ModelOption {
   id: string;
   name: string;
-  tagline: string;
-  contextWindow: string;
-  quantization: string;
-  params: string;
+  tagline?: string;
+  contextWindow?: string;
+  quantization?: string;
+  params?: string;
   provider: string;
   badge?: string;
-  color: string;
-  iconType: 'quantum' | 'deepseek' | 'llama' | 'mistral' | 'claude';
+  color?: string;
+  iconType?: 'quantum' | 'deepseek' | 'llama' | 'mistral' | 'claude';
+  description?: string;
+  pricing?: { prompt: number; completion: number };
 }
 
 export type LLMProvider = 'openrouter' | 'deepseek' | 'groq' | 'openai' | 'ollama' | 'rust_engine' | 'custom';

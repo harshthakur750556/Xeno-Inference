@@ -52,11 +52,12 @@ import type {
   ChatSession,
   SlashCommand,
   LLMProvider,
+  ModelOption,
 } from '../types';
 import {
-  AVAILABLE_MODELS,
   checkBackendHealth,
   streamChatInference,
+  fetchProviderModels,
 } from '../services/api';
 import {
   getStoredSessions,
@@ -157,7 +158,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
   // Split Web Browser Panel State
   const [isWebBrowserOpen, setIsWebBrowserOpen] = useState(false);
-  const [webBrowserInitialQuery, setWebBrowserInitialQuery] = useState('DeepSeek R1 reasoning architecture');
+  const [webBrowserInitialQuery, setWebBrowserInitialQuery] = useState('');
 
   // Leaderboard & News Modals
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
@@ -174,14 +175,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editMessageContent, setEditMessageContent] = useState('');
 
-  // Live Provider Status
+  // Live Provider Status & Dynamic Models Discovered from Provider
   const [providerStatus, setProviderStatus] = useState<{
     connected: boolean;
     label: string;
   }>({
     connected: false,
-    label: 'Checking connection...',
+    label: 'No Provider Connected',
   });
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>(() => {
+    try {
+      const cached = localStorage.getItem('xeno_provider_models');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [modelSearch, setModelSearch] = useState('');
 
   // Modals & Navigation (COLLAPSED ON DEFAULT ON ALL SCREENS)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -284,7 +293,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     setIsSettingsOpen(true);
   };
 
-  // Check Active Provider Status
+  // Check Active Provider Status & Reach out to provider API to discover available models
   useEffect(() => {
     let isMounted = true;
     const checkStatus = async () => {
@@ -298,12 +307,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         }
       } else if (config.provider === 'ollama') {
         try {
-          const res = await fetch(`${config.baseUrl || 'http://localhost:11434'}/api/tags`);
+          const res = await fetchProviderModels('ollama', undefined, config.baseUrl);
           if (isMounted) {
-            setProviderStatus({
-              connected: res.ok,
-              label: res.ok ? 'Ollama Online' : 'Ollama Offline',
-            });
+            if (res.connected && res.models.length > 0) {
+              setAvailableModels(res.models);
+              setProviderStatus({
+                connected: true,
+                label: `Ollama Local (${res.models.length} models)`,
+              });
+              if (!config.model || !res.models.some((m) => m.id === config.model)) {
+                setConfig((prev) => ({ ...prev, model: res.models[0].id }));
+              }
+            } else {
+              setProviderStatus({
+                connected: false,
+                label: 'Ollama Offline',
+              });
+            }
           }
         } catch {
           if (isMounted) {
@@ -314,17 +334,62 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           }
         }
       } else {
-        if (isMounted) {
-          setProviderStatus({
-            connected: true,
-            label: `${config.provider.toUpperCase()} Active`,
-          });
+        // Cloud providers (openrouter, groq, deepseek, openai, custom)
+        if (!config.apiKey || !config.apiKey.trim()) {
+          if (isMounted) {
+            setProviderStatus({
+              connected: false,
+              label: 'No Provider Connected',
+            });
+            // If openrouter without personal key, can discover public catalog
+            if (config.provider === 'openrouter') {
+              fetchProviderModels('openrouter').then((res) => {
+                if (isMounted && res.models.length > 0) {
+                  setAvailableModels(res.models);
+                  if (!config.model) {
+                    setConfig((prev) => ({ ...prev, model: res.models[0].id }));
+                  }
+                }
+              });
+            }
+          }
+          return;
+        }
+
+        // Has API key: reach out to provider to discover available models!
+        try {
+          const res = await fetchProviderModels(config.provider, config.apiKey, config.baseUrl);
+          if (isMounted) {
+            if (res.connected && res.models.length > 0) {
+              setAvailableModels(res.models);
+              localStorage.setItem('xeno_provider_models', JSON.stringify(res.models));
+              setProviderStatus({
+                connected: true,
+                label: `${config.provider.toUpperCase()} Online (${res.models.length} models)`,
+              });
+              if (!config.model || !res.models.some((m) => m.id === config.model)) {
+                setConfig((prev) => ({ ...prev, model: res.models[0].id }));
+              }
+            } else {
+              setProviderStatus({
+                connected: false,
+                label: res.message || `${config.provider.toUpperCase()} Auth Failed`,
+              });
+            }
+          }
+        } catch {
+          if (isMounted) {
+            setProviderStatus({
+              connected: false,
+              label: `${config.provider.toUpperCase()} Disconnected`,
+            });
+          }
         }
       }
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 15000);
+    const interval = setInterval(checkStatus, 30000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -423,7 +488,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
   // Open Split Web Browser with Query (Strictly closes canvas and collapses sidebar on smaller screens)
   const handleOpenWebBrowser = (query?: string) => {
-    if (query) setWebBrowserInitialQuery(query);
+    setWebBrowserInitialQuery(query || '');
     setIsWebBrowserOpen(true);
     setIsCanvasOpen(false);
     setIsToolsMenuOpen(false);
@@ -442,6 +507,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     const promptText = (textToSend || input).trim();
     if (!promptText && attachments.length === 0) return;
     if (isStreaming) return;
+
+    if (!providerStatus.connected) {
+      handleOpenSettings();
+      return;
+    }
 
     let currentSessionId = activeSessionId;
     if (!currentSessionId) {
@@ -851,7 +921,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
     textareaRef.current?.focus();
   };
 
-  const selectedModel = AVAILABLE_MODELS.find((m) => m.id === config.model) || AVAILABLE_MODELS[0];
+  const selectedModel: ModelOption =
+    availableModels.find((m) => m.id === config.model) ||
+    availableModels[0] || {
+      id: config.model || '',
+      name: config.model ? config.model.split('/').pop()?.toUpperCase() || config.model : 'Select Model',
+      provider: config.provider ? config.provider.toUpperCase() : 'NO PROVIDER',
+      contextWindow: '128k',
+    };
 
   // Filter Sessions
   const filteredSessions = sessions.filter((s) =>
@@ -1111,39 +1188,87 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                 </button>
               )}
 
-              {isModelDropdownOpen && providerStatus.connected && (
+              {isModelDropdownOpen && (
                 <div
                   ref={modelDropdownRef}
-                  className="absolute top-full left-0 mt-2 w-72 sm:w-80 max-h-[50vh] overflow-y-auto rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-1.5 z-50 animate-fade-in space-y-0.5"
+                  className="absolute top-full left-0 mt-2 w-80 sm:w-96 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#0c0c10] border border-zinc-700 shadow-2xl p-2 z-50 animate-fade-in space-y-1.5"
                 >
-                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-zinc-500 tracking-wider">
-                    Select Model ({config.provider.toUpperCase()})
+                  <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono uppercase text-zinc-400 tracking-wider">
+                    <span>Models from {config.provider.toUpperCase()}</span>
+                    <span>{availableModels.length} available</span>
                   </div>
-                  {AVAILABLE_MODELS.map((model) => (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => {
-                        setConfig((prev) => ({ ...prev, model: model.id }));
-                        setIsModelDropdownOpen(false);
-                      }}
-                      className={
-                        "w-full text-left p-2.5 rounded-xl transition cursor-pointer flex items-start gap-2.5 " +
-                        (config.model === model.id
-                          ? 'bg-zinc-800/80 border border-zinc-600'
-                          : 'hover:bg-zinc-900/60 border border-transparent')
-                      }
-                    >
-                      <div className="w-2 h-2 rounded-full mt-1.5 bg-white flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-white truncate">{model.name}</span>
-                          <span className="text-[10px] font-mono text-zinc-500">{model.params}</span>
-                        </div>
-                        <p className="text-[11px] text-zinc-400 truncate mt-0.5">{model.tagline}</p>
+
+                  {/* Search filter */}
+                  {availableModels.length > 5 && (
+                    <div className="px-1">
+                      <input
+                        type="text"
+                        value={modelSearch}
+                        onChange={(e) => setModelSearch(e.target.value)}
+                        placeholder="Search models..."
+                        className="w-full px-3 py-1.5 rounded-xl bg-black border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+
+                  <div className="max-h-64 overflow-y-auto space-y-0.5">
+                    {availableModels.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-zinc-400 space-y-2">
+                        <p>No models discovered yet from {config.provider.toUpperCase()}.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsModelDropdownOpen(false);
+                            handleOpenSettings();
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white text-black font-semibold text-xs transition"
+                        >
+                          Configure API Key
+                        </button>
                       </div>
-                    </button>
-                  ))}
+                    ) : (
+                      availableModels
+                        .filter(
+                          (m) =>
+                            m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                            m.id.toLowerCase().includes(modelSearch.toLowerCase())
+                        )
+                        .map((model) => (
+                          <button
+                            key={model.id}
+                            type="button"
+                            onClick={() => {
+                              setConfig((prev) => ({ ...prev, model: model.id }));
+                              setIsModelDropdownOpen(false);
+                              setModelSearch('');
+                            }}
+                            className={
+                              "w-full text-left p-2.5 rounded-xl transition cursor-pointer flex items-start gap-2.5 " +
+                              (config.model === model.id
+                                ? 'bg-zinc-800/80 border border-zinc-600 text-white'
+                                : 'hover:bg-zinc-900/60 border border-transparent text-zinc-300')
+                            }
+                          >
+                            <div className="w-2 h-2 rounded-full mt-1.5 bg-emerald-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-white truncate">{model.name}</span>
+                                {model.badge && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                    {model.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] font-mono text-zinc-500">
+                                <span className="truncate max-w-[180px]">{model.id}</span>
+                                {model.contextWindow && <span>• {model.contextWindow}</span>}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1592,6 +1717,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               </div>
             )}
 
+            {/* No Provider Warning Callout */}
+            {!providerStatus.connected && (
+              <div className="mb-2 p-2.5 sm:p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span>No AI provider connected. Configure OpenRouter, Groq, DeepSeek, OpenAI, or Ollama to discover available models.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenSettings}
+                  className="px-3 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-[11px] transition cursor-pointer flex-shrink-0 ml-2"
+                >
+                  Connect Provider
+                </button>
+              </div>
+            )}
+
             {/* Floating Pill Capsule Omnibar */}
             <div className={`relative rounded-3xl bg-zinc-900/70 hover:bg-zinc-900/90 border shadow-2xl transition-all duration-200 p-2 sm:p-2.5 ${
               isListening
@@ -1615,7 +1757,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder={`Ask ${selectedModel.name} anything, paste code, or type / for commands...`}
+                placeholder={
+                  providerStatus.connected
+                    ? `Ask ${selectedModel.name} anything, paste code, or type / for commands...`
+                    : `Configure an AI provider & API key in Settings to begin...`
+                }
                 rows={1}
                 className="w-full px-3 py-1.5 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-40 overflow-y-auto leading-relaxed"
                 style={{ minHeight: '38px' }}
@@ -1729,14 +1875,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </div>
 
             <div className="text-center text-[10px] font-mono text-zinc-500 flex items-center justify-center gap-2">
-              <span>Engine: <strong className="text-zinc-300 font-semibold">{config.provider.toUpperCase()}</strong></span>
-              <span>•</span>
-              <span>Model: <strong className="text-zinc-300 font-semibold">{selectedModel.name}</strong></span>
-              <span>•</span>
-              <span className="text-emerald-400 font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Engine
-              </span>
+              {providerStatus.connected ? (
+                <>
+                  <span>Provider: <strong className="text-zinc-300 font-semibold">{config.provider.toUpperCase()}</strong></span>
+                  <span>•</span>
+                  <span>Model: <strong className="text-zinc-300 font-semibold">{selectedModel.name}</strong></span>
+                  <span>•</span>
+                  <span className="text-emerald-400 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Online
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-400/90 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>No Provider Connected</span>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={handleOpenSettings}
+                    className="underline hover:text-amber-200 cursor-pointer font-sans text-[11px]"
+                  >
+                    Configure Provider & Key
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>
@@ -1809,6 +1972,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         onOpenAuth={() => {
           setIsSettingsOpen(false);
           setIsAuthModalOpen(true);
+        }}
+        onModelsDiscovered={(models) => {
+          setAvailableModels(models);
+          localStorage.setItem('xeno_provider_models', JSON.stringify(models));
+          if (!config.model || !models.some((m) => m.id === config.model)) {
+            setConfig((prev) => ({ ...prev, model: models[0]?.id || '' }));
+          }
         }}
       />
 

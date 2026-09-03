@@ -22,8 +22,8 @@ import {
   UserCheck,
   ShieldCheck,
 } from 'lucide-react';
-import type { InferenceConfig, LLMProvider } from '../types';
-import { testProviderConnection } from '../services/api';
+import type { InferenceConfig, LLMProvider, ModelOption } from '../types';
+import { testProviderConnection, fetchProviderModels } from '../services/api';
 import { probeBareMetalHardware } from '../services/hardwareProbe';
 import type { BareMetalSpecs } from '../services/hardwareProbe';
 import type { UserProfile } from './AuthModal';
@@ -35,6 +35,7 @@ interface SettingsModalProps {
   onChange: (newConfig: InferenceConfig) => void;
   currentUser: UserProfile | null;
   onOpenAuth: () => void;
+  onModelsDiscovered?: (models: ModelOption[]) => void;
 }
 
 type SettingsTab = 'providers' | 'sampling' | 'runtime' | 'system' | 'hardware';
@@ -121,12 +122,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChange,
   currentUser,
   onOpenAuth,
+  onModelsDiscovered,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ connected: boolean; latencyMs: number; message: string } | null>(null);
   const [hardwareSpecs, setHardwareSpecs] = useState<BareMetalSpecs | null>(null);
+  const [discoveredModels, setDiscoveredModels] = useState<ModelOption[]>([]);
 
   // Probe real host hardware on mount
   useEffect(() => {
@@ -144,7 +147,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTestResult(null);
     try {
       const res = await testProviderConnection(config);
-      setTestResult(res);
+      if (res.connected) {
+        const modelRes = await fetchProviderModels(config.provider, config.apiKey, config.baseUrl);
+        if (modelRes.models && modelRes.models.length > 0) {
+          setDiscoveredModels(modelRes.models);
+          onModelsDiscovered?.(modelRes.models);
+          setTestResult({
+            connected: true,
+            latencyMs: res.latencyMs,
+            message: `Connected (${res.latencyMs}ms) — ${modelRes.models.length} live models discovered`,
+          });
+          if (!config.model || !modelRes.models.some((m) => m.id === config.model)) {
+            onChange({ ...config, model: modelRes.models[0].id });
+          }
+        } else {
+          setTestResult(res);
+        }
+      } else {
+        setTestResult(res);
+      }
     } catch (err: any) {
       setTestResult({
         connected: false,
@@ -389,6 +410,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Discovered Models List */}
+              {discoveredModels.length > 0 && (
+                <div className="space-y-2 p-3.5 rounded-2xl bg-black border border-zinc-800">
+                  <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+                    <span className="text-white font-bold">AVAILABLE MODELS FROM {config.provider.toUpperCase()}</span>
+                    <span className="text-emerald-400">{discoveredModels.length} models ready</span>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto space-y-1 pt-1">
+                    {discoveredModels.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`flex items-center justify-between p-2 rounded-xl text-xs transition cursor-pointer ${
+                          config.model === m.id
+                            ? 'bg-zinc-800 border border-zinc-600 text-white'
+                            : 'hover:bg-zinc-900 text-zinc-300 border border-transparent'
+                        }`}
+                        onClick={() => onChange({ ...config, model: m.id })}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.model === m.id ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                          <span className="font-semibold text-white truncate">{m.name}</span>
+                          <span className="text-[10px] font-mono text-zinc-500 truncate max-w-[140px]">{m.id}</span>
+                        </div>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded flex-shrink-0 ${
+                          config.model === m.id ? 'bg-emerald-400 text-black font-bold' : 'bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {config.model === m.id ? 'ACTIVE' : 'SELECT'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

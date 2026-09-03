@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Trophy,
@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Cpu,
   Layers,
+  Activity,
 } from 'lucide-react';
 import { fetchLiveArenaLeaderboard } from '../services/liveData';
 import type { LiveLeaderboardModel } from '../services/liveData';
@@ -22,27 +23,49 @@ interface LeaderboardModalProps {
   onSelectModel?: (modelId: string) => void;
 }
 
+type ViewMode = 'graph' | 'matrix' | 'cards' | 'radar';
+
+type SortMetric =
+  | 'intelligenceIndex'
+  | 'arenaElo'
+  | 'codingScore'
+  | 'gpqaDiamond'
+  | 'mathScore'
+  | 'mmluPro'
+  | 'tokensPerSec'
+  | 'ttftMs'
+  | 'pricePerMillionIn';
+
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
   onSelectModel,
 }) => {
-  const [sourceTab, setSourceTab] = useState<'aa' | 'arena' | 'all'>('aa');
+  const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [selectedCreator, setSelectedCreator] = useState<string>('ALL');
   const [licenseFilter, setLicenseFilter] = useState<'all' | 'open' | 'proprietary'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<
-    'intelligenceIndex' | 'codingScore' | 'mathScore' | 'arenaElo' | 'tokensPerSec' | 'ttftMs' | 'pricePerMillionIn'
-  >('intelligenceIndex');
+  const [sortBy, setSortBy] = useState<SortMetric>('intelligenceIndex');
   const [models, setModels] = useState<LiveLeaderboardModel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
+
+  // Nodal Graph axis states
+  const [graphYAxis, setGraphYAxis] = useState<'intelligenceIndex' | 'arenaElo' | 'codingScore' | 'gpqaDiamond'>('intelligenceIndex');
+  const [graphXAxis, setGraphXAxis] = useState<'tokensPerSec' | 'ttftMs' | 'pricePerMillionIn'>('tokensPerSec');
+  const [hoveredModel, setHoveredModel] = useState<LiveLeaderboardModel | null>(null);
+
+  // Radar Comparator selected models (up to 3)
+  const [radarSelectedSlugs, setRadarSelectedSlugs] = useState<string[]>([]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
       const data = await fetchLiveArenaLeaderboard();
       setModels(data);
+      if (data.length > 0 && radarSelectedSlugs.length === 0) {
+        setRadarSelectedSlugs(data.slice(0, 3).map((m) => m.slug));
+      }
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
       console.error('Error loading live leaderboard:', err);
@@ -59,15 +82,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Unique creators for filter tabs
   const creators = ['ALL', 'Anthropic', 'OpenAI', 'DeepSeek', 'Google', 'Meta', 'Alibaba'];
 
   const filtered = models
     .filter((m) => {
-      // Source filter
-      if (sourceTab === 'aa' && m.source === 'arena.ai') return false;
-      if (sourceTab === 'arena' && m.source === 'artificialanalysis.com' && !m.arenaElo) return false;
-
       // Creator filter
       if (selectedCreator !== 'ALL') {
         const cLower = selectedCreator.toLowerCase();
@@ -86,26 +104,75 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
       // Search
       const q = searchQuery.toLowerCase();
-      const matchesSearch =
+      return (
         m.name.toLowerCase().includes(q) ||
         m.creator.toLowerCase().includes(q) ||
-        m.slug.toLowerCase().includes(q) ||
-        m.specialty.toLowerCase().includes(q);
-
-      return matchesSearch;
+        m.slug.toLowerCase().includes(q)
+      );
     })
     .sort((a, b) => {
       if (sortBy === 'ttftMs' || sortBy === 'pricePerMillionIn') {
-        // Lower is better
-        return a[sortBy] - b[sortBy];
+        return (a[sortBy] ?? 0) - (b[sortBy] ?? 0);
       }
-      return b[sortBy] - a[sortBy];
+      return (b[sortBy] ?? 0) - (a[sortBy] ?? 0);
     });
 
-  const maxValForCurrentSort = Math.max(
-    1,
-    ...filtered.map((m) => m[sortBy] || 0)
-  );
+  // Calculate Pareto Frontier for Nodal Graph
+  const graphData = useMemo(() => {
+    if (filtered.length === 0) return { nodes: [], paretoPath: '' };
+
+    const minX = Math.min(...filtered.map((m) => (m[graphXAxis] as number) || 0));
+    const maxX = Math.max(...filtered.map((m) => (m[graphXAxis] as number) || 1));
+    const minY = Math.min(...filtered.map((m) => (m[graphYAxis] as number) || 0));
+    const maxY = Math.max(...filtered.map((m) => (m[graphYAxis] as number) || 1));
+
+    const width = 800;
+    const height = 380;
+    const padding = 50;
+
+    const scaleX = (val: number) => {
+      if (maxX === minX) return width / 2;
+      return padding + ((val - minX) / (maxX - minX)) * (width - padding * 2);
+    };
+
+    const scaleY = (val: number) => {
+      if (maxY === minY) return height / 2;
+      return height - padding - ((val - minY) / (maxY - minY)) * (height - padding * 2);
+    };
+
+    const nodes = filtered.map((m) => {
+      const cx = scaleX((m[graphXAxis] as number) || 0);
+      const cy = scaleY((m[graphYAxis] as number) || 0);
+      return { model: m, cx, cy };
+    });
+
+    const sortedNodes = [...nodes].sort((a, b) => a.cx - b.cx);
+    const paretoNodes: typeof nodes = [];
+    let currentBestY = height;
+
+    sortedNodes.forEach((n) => {
+      if (n.cy <= currentBestY) {
+        paretoNodes.push(n);
+        currentBestY = n.cy;
+      }
+    });
+
+    const paretoPath = paretoNodes.reduce((acc, n, idx) => {
+      return idx === 0 ? `M ${n.cx} ${n.cy}` : `${acc} L ${n.cx} ${n.cy}`;
+    }, '');
+
+    return { nodes, paretoPath };
+  }, [filtered, graphXAxis, graphYAxis]);
+
+  const getCreatorColor = (creator: string) => {
+    const c = creator.toLowerCase();
+    if (c.includes('google')) return '#3b82f6';
+    if (c.includes('anthropic')) return '#f59e0b';
+    if (c.includes('openai')) return '#10b981';
+    if (c.includes('deepseek')) return '#06b6d4';
+    if (c.includes('meta')) return '#8b5cf6';
+    return '#e4e4e7';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl select-none animate-fade-in">
@@ -152,60 +219,51 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           </div>
         </div>
 
-        {/* Source Selector Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-8 py-3 border-b border-zinc-800 bg-[#0a0a0d]">
-          {/* Main Mode Tabs */}
+        {/* View Mode Switcher Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-8 py-2.5 border-b border-zinc-800 bg-[#09090c]">
           <div className="flex items-center p-1 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-xs font-medium">
             <button
-              onClick={() => {
-                setSourceTab('aa');
-                setSortBy('intelligenceIndex');
-              }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
-                sourceTab === 'aa'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setViewMode('graph')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                viewMode === 'graph' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Artificial Analysis</span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300">
-                Live Index
-              </span>
+              <Activity className="w-3.5 h-3.5" />
+              <span>Pareto Frontier Graph</span>
             </button>
 
             <button
-              onClick={() => {
-                setSourceTab('arena');
-                setSortBy('arenaElo');
-              }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
-                sourceTab === 'arena'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setViewMode('matrix')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                viewMode === 'matrix' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Trophy className="w-3.5 h-3.5" />
-              <span>LMSYS Chatbot Arena</span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300">
-                Arena.ai Elo
-              </span>
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Full Evaluations Matrix</span>
             </button>
 
             <button
-              onClick={() => setSourceTab('all')}
-              className={`hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
-                sourceTab === 'all'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setViewMode('radar')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                viewMode === 'radar' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Unified Matrix</span>
+              <span>Model Comparator</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                viewMode === 'cards' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>Detailed Cards</span>
             </button>
           </div>
 
-          {/* Quick External Links */}
+          {/* Quick External Validation Links */}
           <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-400">
             <a
               href="https://artificialanalysis.ai"
@@ -229,10 +287,9 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           </div>
         </div>
 
-        {/* Filter Controls Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-8 py-3 border-b border-zinc-800/80 bg-[#08080a]">
-          {/* Creator Filters */}
-          <div className="flex items-center gap-1 overflow-x-auto">
+        {/* Filters Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 px-5 sm:px-8 py-2.5 border-b border-zinc-800/80 bg-[#070709]">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
             {creators.map((c) => (
               <button
                 key={c}
@@ -248,7 +305,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             ))}
           </div>
 
-          {/* Search, License Filter & Sort Selector */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -264,7 +320,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             <select
               value={licenseFilter}
               onChange={(e) => setLicenseFilter(e.target.value as any)}
-              className="px-2.5 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer font-mono"
             >
               <option value="all">All Licenses</option>
               <option value="open">Open Weights Only</option>
@@ -273,16 +329,18 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2.5 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-white font-medium focus:outline-none focus:border-zinc-600 cursor-pointer"
+              onChange={(e) => setSortBy(e.target.value as SortMetric)}
+              className="px-2.5 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-white font-medium focus:outline-none focus:border-zinc-600 cursor-pointer font-mono"
             >
-              <option value="intelligenceIndex">Sort: AA Intelligence Index</option>
-              <option value="codingScore">Sort: SWE-bench / LiveCode</option>
-              <option value="mathScore">Sort: AIME 2024 Math</option>
-              <option value="arenaElo">Sort: Arena.ai Elo</option>
-              <option value="tokensPerSec">Sort: Speed (tok/s)</option>
-              <option value="ttftMs">Sort: Lowest Latency (TTFT)</option>
-              <option value="pricePerMillionIn">Sort: Lowest Price / 1M</option>
+              <option value="intelligenceIndex">Rank: AA Intelligence Index</option>
+              <option value="arenaElo">Rank: Arena.ai Overall Elo</option>
+              <option value="codingScore">Rank: SWE-bench Verified (%)</option>
+              <option value="gpqaDiamond">Rank: GPQA Diamond PhD (%)</option>
+              <option value="mathScore">Rank: MATH 500 / AIME (%)</option>
+              <option value="mmluPro">Rank: MMLU-Pro Reasoning (%)</option>
+              <option value="tokensPerSec">Rank: Output Speed (tok/s)</option>
+              <option value="ttftMs">Rank: Lowest TTFT Latency (ms)</option>
+              <option value="pricePerMillionIn">Rank: Lowest Price / 1M</option>
             </select>
           </div>
         </div>
@@ -290,171 +348,517 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
         {/* Scrollable Content Body */}
         <div className="p-5 sm:p-8 overflow-y-auto space-y-6 flex-1">
           
-          {/* Top 5 Visual Distribution Comparison Bar Chart */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800 space-y-3 shadow-inner">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="flex items-center gap-2 text-zinc-300 font-semibold">
-                <BarChart3 className="w-4 h-4 text-white" />
-                <span>TOP 5 BENCHMARK COMPARISON</span>
-                <span className="text-[10px] text-zinc-500 font-normal">
-                  ({sortBy === 'intelligenceIndex' ? 'Artificial Analysis Intelligence Index' : sortBy.toUpperCase()})
-                </span>
-              </span>
-              <span className="text-[11px] text-zinc-500 font-mono">
-                {filtered.length} Models Verified
-              </span>
+          {/* ================= VIEW 1: INTERACTIVE PARETO FRONTIER NODAL GRAPH ================= */}
+          {viewMode === 'graph' && (
+            <div className="space-y-4">
+              {/* Graph Axis Selectors */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-zinc-900/50 border border-zinc-800 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-400">Y-AXIS (QUALITY):</span>
+                  <select
+                    value={graphYAxis}
+                    onChange={(e) => setGraphYAxis(e.target.value as any)}
+                    className="px-2 py-1 rounded-lg bg-black border border-zinc-700 text-white font-semibold cursor-pointer"
+                  >
+                    <option value="intelligenceIndex">AA Intelligence Index (Quality)</option>
+                    <option value="arenaElo">LMSYS Arena Overall Elo</option>
+                    <option value="codingScore">SWE-bench Verified (%)</option>
+                    <option value="gpqaDiamond">GPQA Diamond PhD Science (%)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-400">X-AXIS (TRADE-OFF):</span>
+                  <select
+                    value={graphXAxis}
+                    onChange={(e) => setGraphXAxis(e.target.value as any)}
+                    className="px-2 py-1 rounded-lg bg-black border border-zinc-700 text-white font-semibold cursor-pointer"
+                  >
+                    <option value="tokensPerSec">Throughput Speed (Tokens / sec)</option>
+                    <option value="ttftMs">Time-to-First-Token Latency (ms)</option>
+                    <option value="pricePerMillionIn">Prompt Cost ($ / 1M tokens)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+                  <span className="w-2.5 h-0.5 bg-emerald-400 inline-block" />
+                  <span>Pareto Optimal Frontier</span>
+                </div>
+              </div>
+
+              {/* Interactive SVG Nodal Graph */}
+              <div className="relative p-4 rounded-3xl bg-black border border-zinc-800 shadow-2xl overflow-hidden">
+                <svg viewBox="0 0 800 380" className="w-full h-80 sm:h-96 overflow-visible">
+                  {/* Grid Lines */}
+                  {[0, 1, 2, 3, 4].map((i) => {
+                    const y = 50 + (i * 280) / 4;
+                    return (
+                      <line
+                        key={'grid-y-' + i}
+                        x1="50"
+                        y1={y}
+                        x2="750"
+                        y2={y}
+                        stroke="#27272a"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                      />
+                    );
+                  })}
+                  {[0, 1, 2, 3, 4].map((i) => {
+                    const x = 50 + (i * 700) / 4;
+                    return (
+                      <line
+                        key={'grid-x-' + i}
+                        x1={x}
+                        y1="50"
+                        x2={x}
+                        y2="330"
+                        stroke="#27272a"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                      />
+                    );
+                  })}
+
+                  {/* Pareto Frontier Connecting Line */}
+                  {graphData.paretoPath && (
+                    <path
+                      d={graphData.paretoPath}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="2.5"
+                      strokeDasharray="6 3"
+                      className="opacity-80"
+                    />
+                  )}
+
+                  {/* Nodes for each model */}
+                  {graphData.nodes.map(({ model, cx, cy }) => {
+                    const isHovered = hoveredModel?.slug === model.slug;
+                    const nodeColor = getCreatorColor(model.creator);
+
+                    return (
+                      <g
+                        key={model.slug}
+                        className="cursor-pointer transition-transform duration-200"
+                        onMouseEnter={() => setHoveredModel(model)}
+                        onClick={() => {
+                          if (onSelectModel) {
+                            onSelectModel(model.slug);
+                            onClose();
+                          }
+                        }}
+                      >
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={isHovered ? 8 : 5.5}
+                          fill={nodeColor}
+                          stroke="#ffffff"
+                          strokeWidth={isHovered ? 2.5 : 1.2}
+                          className="transition-all duration-150"
+                        />
+                        {isHovered && (
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r={14}
+                            fill="none"
+                            stroke={nodeColor}
+                            strokeWidth="1.5"
+                            className="animate-ping opacity-60"
+                          />
+                        )}
+                        <text
+                          x={cx + 9}
+                          y={cy + 3}
+                          fontSize="9"
+                          fill={isHovered ? '#ffffff' : '#a1a1aa'}
+                          fontFamily="monospace"
+                          fontWeight={isHovered ? 'bold' : 'normal'}
+                        >
+                          {model.name.split(':')[1]?.trim() || model.name.slice(0, 14)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Floating HUD Tooltip on Hover */}
+                {hoveredModel && (
+                  <div className="absolute top-4 right-4 p-4 rounded-2xl bg-zinc-900/95 backdrop-blur-md border border-zinc-700 shadow-2xl text-xs space-y-2 max-w-xs animate-fade-in font-mono">
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                      <span className="font-bold text-white text-sm truncate">{hoveredModel.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                        {hoveredModel.creator}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-zinc-500">AA Quality Index:</span>
+                        <div className="font-bold text-white">{hoveredModel.intelligenceIndex} pts</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">Arena Elo:</span>
+                        <div className="font-bold text-white">{hoveredModel.arenaElo} ELO</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">SWE-bench Coding:</span>
+                        <div className="font-bold text-emerald-400">{hoveredModel.codingScore}%</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">GPQA Diamond:</span>
+                        <div className="font-bold text-sky-400">{hoveredModel.gpqaDiamond || 'N/A'}%</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">Throughput Speed:</span>
+                        <div className="font-bold text-amber-300">{hoveredModel.tokensPerSec} tok/s</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">Prompt / Comp Cost:</span>
+                        <div className="font-bold text-zinc-300">${hoveredModel.pricePerMillionIn} / ${hoveredModel.pricePerMillionOut}</div>
+                      </div>
+                    </div>
+
+                    {onSelectModel && (
+                      <button
+                        onClick={() => {
+                          onSelectModel(hoveredModel.slug);
+                          onClose();
+                        }}
+                        className="w-full mt-2 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition cursor-pointer"
+                      >
+                        Select Model for Chat
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+          )}
 
-            <div className="space-y-2.5 pt-1">
-              {filtered.slice(0, 5).map((model, idx) => {
-                const val = model[sortBy] || 0;
-                const percent = Math.max(12, Math.min(100, (val / maxValForCurrentSort) * 100));
+          {/* ================= VIEW 2: COMPREHENSIVE FULL EVALUATIONS MATRIX ================= */}
+          {viewMode === 'matrix' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
+                <span>ALL BENCHMARKS EVALUATIONS MATRIX ({filtered.length} Models Verified)</span>
+                <span>Click column header to sort</span>
+              </div>
 
-                const medalColor =
-                  idx === 0
-                    ? 'text-amber-400 bg-amber-950/40 border-amber-500/40'
-                    : idx === 1
-                    ? 'text-zinc-300 bg-zinc-800/60 border-zinc-600/40'
-                    : idx === 2
-                    ? 'text-amber-700 bg-amber-950/20 border-amber-800/30'
-                    : 'text-zinc-500 bg-black border-zinc-800';
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-black/60 shadow-xl">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#0b0b10] border-b border-zinc-800 text-zinc-400 text-[11px] uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3"># Model</th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('intelligenceIndex')}>
+                        AA Quality
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('arenaElo')}>
+                        Arena Elo
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('codingScore')}>
+                        SWE-bench
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('gpqaDiamond')}>
+                        GPQA Diamond
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('mathScore')}>
+                        MATH 500
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('mmluPro')}>
+                        MMLU-Pro
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('tokensPerSec')}>
+                        Speed (tok/s)
+                      </th>
+                      <th className="p-3 text-center cursor-pointer hover:text-white" onClick={() => setSortBy('pricePerMillionIn')}>
+                        Price / 1M
+                      </th>
+                      <th className="p-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {filtered.map((model, idx) => (
+                      <tr key={model.slug} className="hover:bg-zinc-900/60 transition group">
+                        <td className="p-3 font-semibold text-white flex items-center gap-2">
+                          <span className="text-[10px] text-zinc-500 w-4">{idx + 1}</span>
+                          <div className="min-w-0">
+                            <div className="truncate max-w-[200px] text-xs font-bold text-white group-hover:text-sky-300">
+                              {model.name}
+                            </div>
+                            <div className="text-[10px] text-zinc-500">{model.creator} • {model.license}</div>
+                          </div>
+                        </td>
 
-                return (
-                  <div key={model.slug} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-5 h-5 rounded-full border text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${medalColor}`}>
+                        <td className="p-3 text-center font-bold text-white">
+                          {model.intelligenceIndex}
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-amber-300">
+                          {model.arenaElo}
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-emerald-400">
+                          {model.codingScore}%
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-sky-400">
+                          {model.gpqaDiamond || 'N/A'}%
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-indigo-300">
+                          {model.mathScore}%
+                        </td>
+
+                        <td className="p-3 text-center font-bold text-purple-300">
+                          {model.mmluPro || 'N/A'}%
+                        </td>
+
+                        <td className="p-3 text-center text-zinc-300">
+                          {model.tokensPerSec}
+                        </td>
+
+                        <td className="p-3 text-center text-zinc-400 text-[11px]">
+                          ${model.pricePerMillionIn} / ${model.pricePerMillionOut}
+                        </td>
+
+                        <td className="p-3 text-right">
+                          {onSelectModel && (
+                            <button
+                              onClick={() => {
+                                onSelectModel(model.slug);
+                                onClose();
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-white hover:text-black text-white text-[11px] font-bold transition cursor-pointer"
+                            >
+                              Select
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ================= VIEW 3: MULTI-MODEL COMPARATOR ================= */}
+          {viewMode === 'radar' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 space-y-2">
+                <div className="text-xs font-mono text-zinc-400">
+                  SELECT UP TO 3 MODELS TO COMPARE BENCHMARKS SIDE-BY-SIDE:
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {filtered.slice(0, 15).map((m) => {
+                    const isSelected = radarSelectedSlugs.includes(m.slug);
+                    return (
+                      <button
+                        key={m.slug}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setRadarSelectedSlugs((prev) => prev.filter((s) => s !== m.slug));
+                          } else if (radarSelectedSlugs.length < 3) {
+                            setRadarSelectedSlugs((prev) => [...prev, m.slug]);
+                          }
+                        }}
+                        className={`px-3 py-1 rounded-xl text-xs font-mono transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-white text-black font-bold'
+                            : 'bg-black border border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        {m.name.split(':')[1]?.trim() || m.name.slice(0, 16)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Comparative Multi-Metric Bar Visualization */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {radarSelectedSlugs.map((slug) => {
+                  const model = models.find((m) => m.slug === slug);
+                  if (!model) return null;
+
+                  return (
+                    <div key={slug} className="p-5 rounded-2xl bg-black border border-zinc-800 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-white truncate max-w-[200px]">{model.name}</h3>
+                          <div className="text-[10px] font-mono text-zinc-400">{model.creator}</div>
+                        </div>
+                        {onSelectModel && (
+                          <button
+                            onClick={() => {
+                              onSelectModel(model.slug);
+                              onClose();
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-white text-black text-[11px] font-bold cursor-pointer"
+                          >
+                            Select
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Benchmark Bars */}
+                      <div className="space-y-2.5 text-xs font-mono">
+                        <div>
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <span>AA Intelligence Index:</span>
+                            <span className="text-white font-bold">{model.intelligenceIndex} pts</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${model.intelligenceIndex}%` }} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <span>SWE-bench Verified Coding:</span>
+                            <span className="text-emerald-400 font-bold">{model.codingScore}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${model.codingScore}%` }} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <span>GPQA Diamond Science:</span>
+                            <span className="text-sky-400 font-bold">{model.gpqaDiamond || 'N/A'}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-sky-400 rounded-full" style={{ width: `${model.gpqaDiamond || 0}%` }} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <span>MATH 500 / AIME Math:</span>
+                            <span className="text-indigo-300 font-bold">{model.mathScore}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${model.mathScore}%` }} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] text-zinc-400">
+                            <span>Arena.ai Human Elo:</span>
+                            <span className="text-amber-300 font-bold">{model.arenaElo} ELO</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-amber-400 rounded-full" style={{ width: `${((model.arenaElo - 1000) / 400) * 100}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ================= VIEW 4: DETAILED MODEL CARDS ================= */}
+          {viewMode === 'cards' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {filtered.map((model, idx) => (
+                <div
+                  key={model.slug}
+                  className="p-5 rounded-2xl bg-zinc-900/30 hover:bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-3.5 group shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-white text-black text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">
                           {idx + 1}
                         </span>
-                        <span className="text-zinc-100 font-semibold truncate max-w-[280px]">
+                        <h3 className="text-sm font-bold text-white group-hover:text-sky-300 truncate">
                           {model.name}
-                        </span>
-                        <span className="text-[10px] text-zinc-500 font-normal hidden sm:inline">
-                          ({model.creator})
-                        </span>
+                        </h3>
                       </div>
-                      <span className="text-white font-bold ml-2">
-                        {sortBy === 'pricePerMillionIn'
-                          ? `$${val}/1M`
-                          : sortBy === 'ttftMs'
-                          ? `${val}ms`
-                          : sortBy === 'tokensPerSec'
-                          ? `${val} tok/s`
-                          : sortBy === 'arenaElo'
-                          ? `${val} ELO`
-                          : `${val} pts`}
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400 mt-1">
+                        <span className="font-semibold text-zinc-300">{model.creator}</span>
+                        <span>•</span>
+                        <span className={model.license === 'Open Weights' ? 'text-emerald-400 font-medium' : 'text-zinc-400'}>
+                          {model.license}
+                        </span>
+                        <span>•</span>
+                        <span>Context: {model.contextWindow}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex-shrink-0 bg-black/80 px-3 py-1.5 rounded-xl border border-zinc-800">
+                      <div className="text-sm sm:text-base font-extrabold text-white font-mono leading-none">
+                        {model.intelligenceIndex} pts
+                      </div>
+                      <div className="text-[9px] font-mono text-zinc-500 uppercase mt-0.5">
+                        AA Quality Index
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Benchmark Badges */}
+                  <div className="grid grid-cols-4 gap-2 text-center font-mono">
+                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
+                      <div className="text-[9px] text-zinc-500 uppercase truncate">Arena Elo</div>
+                      <div className="text-xs font-bold text-amber-300 mt-0.5">{model.arenaElo}</div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
+                      <div className="text-[9px] text-zinc-500 uppercase truncate">SWE-bench</div>
+                      <div className="text-xs font-bold text-emerald-400 mt-0.5">{model.codingScore}%</div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
+                      <div className="text-[9px] text-zinc-500 uppercase truncate">GPQA Science</div>
+                      <div className="text-xs font-bold text-sky-400 mt-0.5">{model.gpqaDiamond || 'N/A'}%</div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
+                      <div className="text-[9px] text-zinc-500 uppercase truncate">MATH 500</div>
+                      <div className="text-xs font-bold text-indigo-300 mt-0.5">{model.mathScore}%</div>
+                    </div>
+                  </div>
+
+                  {/* Latency & Pricing */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/60 text-xs font-mono">
+                    <div className="flex items-center gap-3 text-zinc-400 text-[11px]">
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-zinc-300" />
+                        <span>{model.tokensPerSec} tok/s</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-zinc-300" />
+                        <span>{model.ttftMs}ms TTFT</span>
+                      </span>
+                      <span className="flex items-center gap-1 text-zinc-400">
+                        <DollarSign className="w-3 h-3 text-emerald-400" />
+                        <span>${model.pricePerMillionIn} / ${model.pricePerMillionOut}</span>
                       </span>
                     </div>
 
-                    <div className="h-2.5 w-full bg-black rounded-full overflow-hidden border border-zinc-800/80">
-                      <div
-                        className="h-full bg-gradient-to-r from-zinc-400 via-zinc-200 to-white transition-all duration-700 rounded-full"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
+                    {onSelectModel && (
+                      <button
+                        onClick={() => {
+                          onSelectModel(model.slug);
+                          onClose();
+                        }}
+                        className="px-3 py-1 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition cursor-pointer shadow-sm"
+                      >
+                        Select for Chat
+                      </button>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
-          </div>
-
-          {/* Detailed Models Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filtered.map((model, idx) => (
-              <div
-                key={model.slug}
-                className="p-4 sm:p-5 rounded-2xl bg-zinc-900/30 hover:bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-3.5 group relative shadow-sm"
-              >
-                {/* Header Row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-md bg-white text-black text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">
-                        {idx + 1}
-                      </span>
-                      <h3 className="text-sm font-bold text-white group-hover:text-zinc-100 truncate">
-                        {model.name}
-                      </h3>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400 mt-1">
-                      <span className="font-semibold text-zinc-300">{model.creator}</span>
-                      <span>•</span>
-                      <span className={model.license === 'Open Weights' ? 'text-emerald-400 font-medium' : 'text-zinc-400'}>
-                        {model.license}
-                      </span>
-                      <span>•</span>
-                      <span>Context: {model.contextWindow}</span>
-                    </div>
-                  </div>
-
-                  {/* Primary Score Pill */}
-                  <div className="text-right flex-shrink-0 bg-black/60 px-3 py-1.5 rounded-xl border border-zinc-800">
-                    <div className="text-sm sm:text-base font-extrabold text-white font-mono leading-none">
-                      {sourceTab === 'arena' ? `${model.arenaElo} ELO` : `${model.intelligenceIndex} pts`}
-                    </div>
-                    <div className="text-[9px] font-mono text-zinc-500 uppercase mt-0.5">
-                      {sourceTab === 'arena' ? 'Arena.ai Elo' : 'AA Intelligence'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Real Benchmark Statistics Strip */}
-                <div className="grid grid-cols-4 gap-2 text-center font-mono">
-                  <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                    <div className="text-[9px] text-zinc-500 uppercase truncate">AA Index</div>
-                    <div className="text-xs font-bold text-white mt-0.5">{model.intelligenceIndex}</div>
-                  </div>
-
-                  <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                    <div className="text-[9px] text-zinc-500 uppercase truncate">SWE Coding</div>
-                    <div className="text-xs font-bold text-emerald-400 mt-0.5">{model.codingScore}%</div>
-                  </div>
-
-                  <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                    <div className="text-[9px] text-zinc-500 uppercase truncate">AIME Math</div>
-                    <div className="text-xs font-bold text-indigo-300 mt-0.5">{model.mathScore}%</div>
-                  </div>
-
-                  <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                    <div className="text-[9px] text-zinc-500 uppercase truncate">Arena Elo</div>
-                    <div className="text-xs font-bold text-white mt-0.5">{model.arenaElo || 'N/A'}</div>
-                  </div>
-                </div>
-
-                {/* Latency, Throughput & Economics Strip */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/60 text-xs font-mono">
-                  <div className="flex items-center gap-3 text-zinc-400 text-[11px]">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-zinc-300" />
-                      <span>{model.tokensPerSec} tok/s</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-zinc-300" />
-                      <span>{model.ttftMs}ms TTFT</span>
-                    </span>
-                    <span className="flex items-center gap-1 text-zinc-400">
-                      <DollarSign className="w-3 h-3 text-emerald-400" />
-                      <span>${model.pricePerMillionIn} / ${model.pricePerMillionOut}</span>
-                    </span>
-                  </div>
-
-                  {onSelectModel && (
-                    <button
-                      onClick={() => {
-                        onSelectModel(model.slug);
-                        onClose();
-                      }}
-                      className="px-3 py-1 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition cursor-pointer shadow-sm"
-                    >
-                      Select for Chat
-                    </button>
-                  )}
-                </div>
-
-              </div>
-            ))}
-          </div>
+          )}
 
         </div>
 
@@ -464,7 +868,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <div className="flex items-center gap-4">
             <span className="text-emerald-400 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Verified Public Benchmark API</span>
+              <span>Real-Time Pareto Frontier Engine</span>
             </span>
           </div>
         </div>

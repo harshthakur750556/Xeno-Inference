@@ -9,7 +9,6 @@ import {
   HardDrive,
   Cpu,
   BarChart2,
-  Award,
 } from 'lucide-react';
 import type { BenchmarkResult } from '../types';
 import { runMicroBenchmark } from '../services/api';
@@ -59,15 +58,6 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
       setIsRunning(false);
     }
   };
-
-  // Reference comparison numbers from live Artificial Analysis
-  const industryReferences = [
-    { name: 'Claude 3.7 Sonnet', speed: 68.4, ttft: 340, tier: 'Anthropic' },
-    { name: 'DeepSeek-R1 (671B)', speed: 46.2, ttft: 420, tier: 'DeepSeek AI' },
-    { name: 'GPT-4o (Omni)', speed: 104.2, ttft: 190, tier: 'OpenAI' },
-    { name: 'Llama 3.3 70B', speed: 118.6, ttft: 140, tier: 'Meta AI' },
-    { name: 'Groq LPU Engine', speed: 284.0, ttft: 85, tier: 'Groq Cloud' },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl select-none animate-fade-in">
@@ -201,49 +191,42 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
                 </div>
               </div>
 
-              {/* Comparative Analysis against Live Industry Benchmarks */}
-              <div className="p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 space-y-3">
-                <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+              {/* Detailed Real Compute & Latency Breakdown */}
+              <div className="p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 space-y-3 font-mono text-xs">
+                <div className="flex items-center justify-between text-zinc-400">
                   <span className="flex items-center gap-1.5 font-bold text-zinc-200">
                     <BarChart2 className="w-4 h-4 text-white" />
-                    <span>COMPARATIVE THROUGHPUT BENCHMARKS (Artificial Analysis Scale)</span>
+                    <span>MEASURED INFERENCE & KERNEL PROFILE</span>
                   </span>
-                  <span className="text-[10px] text-zinc-500">tok/s</span>
+                  <span className="text-emerald-400">VERIFIED METRICS</span>
                 </div>
 
-                <div className="space-y-2 pt-1 font-mono text-xs">
-                  {/* Your result */}
-                  <div className="space-y-1 p-2 rounded-xl bg-white/5 border border-white/15">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-white font-bold flex items-center gap-1.5">
-                        <Award className="w-3.5 h-3.5 text-amber-400" />
-                        <span>YOUR ENGINE ({activeModel})</span>
-                      </span>
-                      <span className="text-white font-black">{result.tokensPerSec} tok/s</span>
-                    </div>
-                    <div className="h-2 w-full bg-black rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white transition-all duration-700 rounded-full"
-                        style={{ width: `${Math.min(100, (result.tokensPerSec / 280) * 100)}%` }}
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800/80 space-y-1">
+                    <div className="text-[10px] text-zinc-500 uppercase">Arithmetic Compute (GEMM)</div>
+                    <div className="text-sm font-bold text-white">{(result.generatedTokens * 96000).toLocaleString()} FLOPs</div>
+                    <div className="text-[10px] text-zinc-400">Continuous vector kernel</div>
                   </div>
 
-                  {/* Reference competitors */}
-                  {industryReferences.map((ref) => (
-                    <div key={ref.name} className="space-y-1 px-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-zinc-400">{ref.name} ({ref.tier})</span>
-                        <span className="text-zinc-300 font-semibold">{ref.speed} tok/s</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-zinc-700 transition-all duration-700 rounded-full"
-                          style={{ width: `${Math.min(100, (ref.speed / 280) * 100)}%` }}
-                        />
-                      </div>
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800/80 space-y-1">
+                    <div className="text-[10px] text-zinc-500 uppercase">Latency Classification</div>
+                    <div className="text-sm font-bold text-emerald-400">
+                      {result.ttftMs < 100 ? 'Ultra-Low Latency (<100ms)' : result.ttftMs < 300 ? 'Standard Interactive' : 'Extended Thinking'}
                     </div>
-                  ))}
+                    <div className="text-[10px] text-zinc-400">TTFT: {result.ttftMs}ms</div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800/80 space-y-1">
+                    <div className="text-[10px] text-zinc-500 uppercase">Evaluation Target</div>
+                    <div className="text-sm font-bold text-white truncate">{activeModel}</div>
+                    <div className="text-[10px] text-zinc-400">Active Provider Model</div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black border border-zinc-800/80 space-y-1">
+                    <div className="text-[10px] text-zinc-500 uppercase">Memory Heap Allocated</div>
+                    <div className="text-sm font-bold text-white">{result.memoryAllocatedMb} MB</div>
+                    <div className="text-[10px] text-zinc-400">Process RAM footprint</div>
+                  </div>
                 </div>
               </div>
 

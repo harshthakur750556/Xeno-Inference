@@ -8,92 +8,87 @@ import type {
   LLMProvider,
 } from '../types';
 
-export const AVAILABLE_MODELS: ModelOption[] = [
-  {
-    id: 'deepseek-r1',
-    name: 'DeepSeek-R1',
-    tagline: 'Open reasoning flagship with autonomous chain-of-thought verification',
-    contextWindow: '128k',
-    quantization: 'FP8 / BF16',
-    params: '671B MoE',
-    provider: 'DeepSeek AI',
-    badge: 'REASONING',
-    color: 'from-purple-500 to-indigo-500',
-    iconType: 'deepseek',
-  },
-  {
-    id: 'claude-3-7-sonnet',
-    name: 'Claude 3.7 Sonnet',
-    tagline: 'Hybrid reasoning and instant high-precision software engineering',
-    contextWindow: '200k',
-    quantization: 'BF16',
-    params: 'Hybrid',
-    provider: 'Anthropic',
-    badge: 'THINKING',
-    color: 'from-amber-500 to-orange-500',
-    iconType: 'claude',
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    tagline: 'High-speed multimodal flagship for polyglot systems architecture',
-    contextWindow: '128k',
-    quantization: 'FP8',
-    params: 'Flagship',
-    provider: 'OpenAI',
-    badge: 'OMNI',
-    color: 'from-emerald-500 to-teal-500',
-    iconType: 'quantum',
-  },
-  {
-    id: 'deepseek-v3',
-    name: 'DeepSeek-V3',
-    tagline: 'Ultra-fast generalist architecture with multi-head latent attention (MLA)',
-    contextWindow: '128k',
-    quantization: 'FP8 Turbo',
-    params: '671B MoE',
-    provider: 'DeepSeek AI',
-    badge: 'FLAGSHIP',
-    color: 'from-blue-500 to-cyan-500',
-    iconType: 'deepseek',
-  },
-  {
-    id: 'o3-mini',
-    name: 'o3-mini',
-    tagline: 'High-speed STEM, math, and algorithmic reasoning model',
-    contextWindow: '128k',
-    quantization: 'FP8',
-    params: 'Reasoning',
-    provider: 'OpenAI',
-    badge: 'FAST STEM',
-    color: 'from-zinc-400 to-zinc-600',
-    iconType: 'quantum',
-  },
-  {
-    id: 'llama-3-3-70b',
-    name: 'Llama 3.3 70B',
-    tagline: 'Leading open-weights instruct transformer for enterprise pipelines',
-    contextWindow: '128k',
-    quantization: 'Q4_K_M',
-    params: '70B Dense',
-    provider: 'Meta AI',
-    badge: 'OPEN WEIGHTS',
-    color: 'from-blue-600 to-indigo-600',
-    iconType: 'llama',
-  },
-  {
-    id: 'qwen-2-5-coder',
-    name: 'Qwen 2.5 Coder 32B',
-    tagline: 'Code specialization with deep syntax tree parsing and refactoring',
-    contextWindow: '128k',
-    quantization: 'Q8_0',
-    params: '32B',
-    provider: 'Alibaba Cloud',
-    badge: 'CODE',
-    color: 'from-violet-500 to-purple-500',
-    iconType: 'quantum',
-  },
-];
+// Dynamic models list fetched directly from the user's active provider
+export const AVAILABLE_MODELS: ModelOption[] = [];
+
+// Reaches out to the user's chosen provider API to discover their actual available models
+export async function fetchProviderModels(
+  provider: LLMProvider,
+  apiKey?: string,
+  baseUrl?: string
+): Promise<{ connected: boolean; models: ModelOption[]; message: string }> {
+  try {
+    const res = await fetch('http://127.0.0.1:3001/api/provider/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, apiKey: apiKey || '', baseUrl }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.models) && data.models.length > 0) {
+        return {
+          connected: Boolean(data.connected),
+          models: data.models,
+          message: data.message || '',
+        };
+      }
+    }
+  } catch {}
+
+  // Direct client-side discovery fallback
+  if (provider === 'openrouter') {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/models');
+      if (res.ok) {
+        const j = await res.json();
+        if (j?.data && Array.isArray(j.data)) {
+          const models: ModelOption[] = j.data.slice(0, 80).map((m: any) => {
+            const prefix = (m.id || '').split('/')[0]?.toUpperCase() || 'OPENROUTER';
+            return {
+              id: m.id,
+              name: m.name || m.id,
+              contextWindow: m.context_length ? `${Math.round(m.context_length / 1024)}k` : '128k',
+              provider: prefix,
+              description: m.description || '',
+              pricing: m.pricing
+                ? {
+                    prompt: parseFloat((parseFloat(m.pricing.prompt || '0') * 1000000).toFixed(2)),
+                    completion: parseFloat((parseFloat(m.pricing.completion || '0') * 1000000).toFixed(2)),
+                  }
+                : undefined,
+              badge: m.id.includes(':free') ? 'FREE' : undefined,
+            };
+          });
+          return { connected: true, models, message: `Loaded ${models.length} models from OpenRouter` };
+        }
+      }
+    } catch {}
+  } else if (provider === 'ollama') {
+    try {
+      const ollamaUrl = baseUrl ? baseUrl.replace(/\/v1.*$/, '/api/tags') : 'http://localhost:11434/api/tags';
+      const res = await fetch(ollamaUrl);
+      if (res.ok) {
+        const j = await res.json();
+        if (j?.models && Array.isArray(j.models)) {
+          const models: ModelOption[] = j.models.map((m: any) => ({
+            id: m.name,
+            name: m.name,
+            contextWindow: '32k',
+            provider: 'OLLAMA LOCAL',
+            badge: 'LOCAL',
+          }));
+          return { connected: true, models, message: `Loaded ${models.length} local Ollama models` };
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    connected: false,
+    models: [],
+    message: apiKey ? `No models returned from ${provider.toUpperCase()}` : `Please enter your API key to discover models from ${provider.toUpperCase()}`,
+  };
+}
 
 export const UI_TOOL_INSTRUCTIONS = `You have direct autonomous control over the Xeno Inference UI. Whenever the user requests an action or whenever appropriate, you can execute UI features by including these tool tags:
 - Search or open the live web browser: [TOOL:OPEN_BROWSER query="search terms"]
@@ -107,46 +102,9 @@ code here
 Always format tool tags cleanly so the client engine can execute them for the user.`;
 
 // Helper to map UI model ID to Provider Model String
-export function resolveProviderModelName(modelId: string, provider: LLMProvider): string {
-  switch (provider) {
-    case 'openrouter':
-      switch (modelId) {
-        case 'deepseek-r1': return 'deepseek/deepseek-r1';
-        case 'deepseek-v3': return 'deepseek/deepseek-chat';
-        case 'claude-3-7-sonnet': return 'anthropic/claude-3.7-sonnet';
-        case 'gpt-4o': return 'openai/gpt-4o';
-        case 'o3-mini': return 'openai/o3-mini';
-        case 'llama-3-3-70b': return 'meta-llama/llama-3.3-70b-instruct';
-        case 'qwen-2-5-coder': return 'qwen/qwen-2.5-coder-32b-instruct';
-        default: return modelId;
-      }
-    case 'deepseek':
-      switch (modelId) {
-        case 'deepseek-r1': return 'deepseek-reasoner';
-        default: return 'deepseek-chat';
-      }
-    case 'groq':
-      switch (modelId) {
-        case 'deepseek-r1': return 'deepseek-r1-distill-llama-70b';
-        case 'llama-3-3-70b': return 'llama-3.3-70b-versatile';
-        case 'qwen-2-5-coder': return 'qwen-2.5-coder-32b';
-        default: return 'llama-3.3-70b-versatile';
-      }
-    case 'openai':
-      switch (modelId) {
-        case 'o3-mini': return 'o3-mini';
-        default: return 'gpt-4o';
-      }
-    case 'ollama':
-      switch (modelId) {
-        case 'deepseek-r1': return 'deepseek-r1';
-        case 'llama-3-3-70b': return 'llama3.3';
-        case 'qwen-2-5-coder': return 'qwen2.5-coder';
-        default: return modelId;
-      }
-    default:
-      return modelId;
-  }
+export function resolveProviderModelName(modelId: string, _provider: LLMProvider): string {
+  // If modelId is already a fully-qualified provider model ID (e.g. "anthropic/claude-fable-5.1" or "deepseek-chat"), return as is
+  return modelId || 'default';
 }
 
 // Get standard endpoint URL based on provider
