@@ -82,8 +82,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const creators = ['ALL', 'Anthropic', 'OpenAI', 'DeepSeek', 'Google', 'Meta', 'Alibaba'];
 
   const filtered = (models || [])
@@ -188,6 +186,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     if (c.includes('meta')) return '#8b5cf6';
     return '#e4e4e7';
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-xl select-none animate-fade-in">

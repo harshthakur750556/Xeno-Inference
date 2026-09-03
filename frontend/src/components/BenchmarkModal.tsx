@@ -32,8 +32,6 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
   const [progress, setProgress] = useState<number>(0);
   const [benchmarkPhase, setBenchmarkPhase] = useState<string>('Ready');
 
-  if (!isOpen) return null;
-
   const handleStartBenchmark = async () => {
     setIsRunning(true);
     setResult(null);
@@ -58,6 +56,8 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
       setIsRunning(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl select-none animate-fade-in">
