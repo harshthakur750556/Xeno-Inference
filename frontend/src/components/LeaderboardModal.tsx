@@ -5,13 +5,10 @@ import {
   BarChart3,
   ExternalLink,
   Search,
-  DollarSign,
   RotateCw,
   Zap,
-  Clock,
   ShieldCheck,
   Cpu,
-  Layers,
   Activity,
   CheckCircle2,
 } from 'lucide-react';
@@ -24,7 +21,7 @@ interface LeaderboardModalProps {
   onSelectModel?: (modelId: string) => void;
 }
 
-type ViewMode = 'graph' | 'matrix' | 'cards' | 'radar';
+type ViewMode = 'graph' | 'matrix';
 
 type SortMetric =
   | 'arenaElo'
@@ -62,18 +59,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   const [graphXAxis, setGraphXAxis] = useState<'tokensPerSec' | 'ttftMs' | 'pricePerMillionIn'>('tokensPerSec');
   const [hoveredModel, setHoveredModel] = useState<LiveLeaderboardModel | null>(null);
 
-  // Radar Comparator selected models (up to 3)
-  const [radarSelectedSlugs, setRadarSelectedSlugs] = useState<string[]>([]);
-
   const loadData = async () => {
     setIsLoading(true);
     try {
       const data = await fetchLiveArenaLeaderboard();
       if (Array.isArray(data) && data.length > 0) {
         setModels(data);
-        if (radarSelectedSlugs.length === 0) {
-          setRadarSelectedSlugs(data.slice(0, 3).map((m) => m.slug || ''));
-        }
       }
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
@@ -473,7 +464,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <div className="flex items-center p-1 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-xs font-medium">
             <button
               onClick={() => setViewMode('graph')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
                 viewMode === 'graph' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -483,32 +474,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
             <button
               onClick={() => setViewMode('matrix')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
                 viewMode === 'matrix' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Full Evaluations Matrix</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('radar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                viewMode === 'radar' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Model Comparator</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                viewMode === 'cards' ? 'bg-white text-black font-bold shadow-md' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Detailed Cards</span>
+              <span>Arena.ai Evaluations Matrix</span>
             </button>
           </div>
 
@@ -1009,222 +980,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               </div>
             </div>
           )}
-
-          {/* ================= VIEW 3: MULTI-MODEL COMPARATOR ================= */}
-          {viewMode === 'radar' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 space-y-2">
-                <div className="text-xs font-mono text-zinc-400">
-                  SELECT UP TO 3 MODELS TO COMPARE BENCHMARKS SIDE-BY-SIDE:
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {filtered.slice(0, 15).map((m) => {
-                    const isSelected = radarSelectedSlugs.includes(m.slug);
-                    return (
-                      <button
-                        key={m.slug}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setRadarSelectedSlugs((prev) => prev.filter((s) => s !== m.slug));
-                          } else if (radarSelectedSlugs.length < 3) {
-                            setRadarSelectedSlugs((prev) => [...prev, m.slug]);
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-xl text-xs font-mono transition cursor-pointer ${
-                          isSelected
-                            ? 'bg-white text-black font-bold'
-                            : 'bg-black border border-zinc-800 text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {m?.name ? (m.name.includes(':') ? m.name.split(':')[1].trim() : m.name.slice(0, 16)) : (m?.slug || 'Model')}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Comparative Multi-Metric Bar Visualization */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {radarSelectedSlugs.map((slug) => {
-                  const model = models.find((m) => m.slug === slug);
-                  if (!model) return null;
-
-                  return (
-                    <div key={slug} className="p-5 rounded-2xl bg-black border border-zinc-800 space-y-4 shadow-xl">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <div>
-                          <h3 className="text-sm font-bold text-white truncate max-w-[200px]">{model.name}</h3>
-                          <div className="text-[10px] font-mono text-zinc-400">{model.creator}</div>
-                        </div>
-                        {onSelectModel && (
-                          <button
-                            onClick={() => {
-                              onSelectModel(model.slug);
-                              onClose();
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-white text-black text-[11px] font-bold cursor-pointer"
-                          >
-                            Select
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Benchmark Bars */}
-                      <div className="space-y-2.5 text-xs font-mono">
-                        <div>
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>AA Intelligence Index:</span>
-                            <span className="text-white font-bold">{model.intelligenceIndex} pts</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
-                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${model.intelligenceIndex}%` }} />
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>SWE-bench Verified Coding:</span>
-                            <span className="text-emerald-400 font-bold">{model.codingScore}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
-                            <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${model.codingScore}%` }} />
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>GPQA Diamond Science:</span>
-                            <span className="text-sky-400 font-bold">{model.gpqaDiamond || 'N/A'}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
-                            <div className="h-full bg-sky-400 rounded-full" style={{ width: `${model.gpqaDiamond || 0}%` }} />
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>MATH 500 / AIME Math:</span>
-                            <span className="text-indigo-300 font-bold">{model.mathScore}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
-                            <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${model.mathScore}%` }} />
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>Arena.ai Human Elo:</span>
-                            <span className="text-amber-300 font-bold">{model.arenaElo} ELO</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden mt-1">
-                            <div className="h-full bg-amber-400 rounded-full" style={{ width: `${((model.arenaElo - 1000) / 400) * 100}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ================= VIEW 4: DETAILED MODEL CARDS ================= */}
-          {viewMode === 'cards' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filtered.map((model, idx) => (
-                <div
-                  key={model.slug}
-                  className="p-5 rounded-2xl bg-zinc-900/30 hover:bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-3.5 group shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-md bg-white text-black text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">
-                          {idx + 1}
-                        </span>
-                        <h3 className="text-sm font-bold text-white group-hover:text-sky-300 truncate">
-                          {model.name}
-                        </h3>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400 mt-1">
-                        <span className="font-semibold text-zinc-300">{model.creator}</span>
-                        <span>•</span>
-                        <span className={model.license === 'Open Weights' ? 'text-emerald-400 font-medium' : 'text-zinc-400'}>
-                          {model.license}
-                        </span>
-                        <span>•</span>
-                        <span>Context: {model.contextWindow}</span>
-                      </div>
-                    </div>
-
-                    <div className="text-right flex-shrink-0 bg-black/80 px-3 py-1.5 rounded-xl border border-zinc-800">
-                      <div className="text-sm sm:text-base font-extrabold text-white font-mono leading-none">
-                        {model.intelligenceIndex} pts
-                      </div>
-                      <div className="text-[9px] font-mono text-zinc-500 uppercase mt-0.5">
-                        AA Quality Index
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Benchmark Badges */}
-                  <div className="grid grid-cols-4 gap-2 text-center font-mono">
-                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                      <div className="text-[9px] text-zinc-500 uppercase truncate">Arena Elo</div>
-                      <div className="text-xs font-bold text-amber-300 mt-0.5">{model.arenaElo}</div>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                      <div className="text-[9px] text-zinc-500 uppercase truncate">SWE-bench</div>
-                      <div className="text-xs font-bold text-emerald-400 mt-0.5">{model.codingScore}%</div>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                      <div className="text-[9px] text-zinc-500 uppercase truncate">GPQA Science</div>
-                      <div className="text-xs font-bold text-sky-400 mt-0.5">{model.gpqaDiamond || 'N/A'}%</div>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-black/60 border border-zinc-800/80">
-                      <div className="text-[9px] text-zinc-500 uppercase truncate">MATH 500</div>
-                      <div className="text-xs font-bold text-indigo-300 mt-0.5">{model.mathScore}%</div>
-                    </div>
-                  </div>
-
-                  {/* Latency & Pricing */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/60 text-xs font-mono">
-                    <div className="flex items-center gap-3 text-zinc-400 text-[11px]">
-                      <span className="flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-zinc-300" />
-                        <span>{model.tokensPerSec} tok/s</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-zinc-300" />
-                        <span>{model.ttftMs}ms TTFT</span>
-                      </span>
-                      <span className="flex items-center gap-1 text-zinc-400">
-                        <DollarSign className="w-3 h-3 text-emerald-400" />
-                        <span>${model.pricePerMillionIn} / ${model.pricePerMillionOut}</span>
-                      </span>
-                    </div>
-
-                    {onSelectModel && (
-                      <button
-                        onClick={() => {
-                          onSelectModel(model.slug);
-                          onClose();
-                        }}
-                        className="px-3 py-1 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition cursor-pointer shadow-sm"
-                      >
-                        Select for Chat
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
         </div>
 
         {/* Footer */}

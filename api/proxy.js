@@ -1,5 +1,5 @@
 // Vercel Serverless Function & Local Proxy: /api/proxy
-// Strips X-Frame-Options and CSP headers, rewrites relative links with <base>,
+// Strips X-Frame-Options and CSP headers, neutralizes frame-busting, rewrites relative links with <base>,
 // and injects a client-side navigation bridge so link clicks and form submits stay inside the browser panel.
 
 try {
@@ -7,6 +7,15 @@ try {
   if (dns && dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
   }
+  const { setGlobalDispatcher, Agent } = require('undici');
+  setGlobalDispatcher(new Agent({
+    connect: {
+      lookup: (hostname, opts, cb) => {
+        if (typeof opts === 'function') { cb = opts; opts = {}; }
+        dns.lookup(hostname, { ...opts, family: 4 }, cb);
+      }
+    }
+  }));
 } catch {}
 
 module.exports = async function handler(req, res) {
@@ -51,15 +60,21 @@ module.exports = async function handler(req, res) {
     const finalUrlObj = new URL(finalUrl);
     const basePath = finalUrlObj.origin + finalUrlObj.pathname.substring(0, finalUrlObj.pathname.lastIndexOf('/') + 1);
 
-    // Strip framing restrictions and meta security headers
+    // Strip framing restrictions, meta CSP, and frame busting
     html = html.replace(/<meta[^>]*http-equiv=["']?(content-security-policy|x-frame-options)["']?[^>]*>/gi, '');
+    html = html.replace(/\b(top|parent)\.location/g, 'window.location');
 
     const baseTag = `<base href="${basePath}">`;
 
-    // Interactive navigation bridge
+    // Interactive navigation bridge & frame isolation
     const bridgeScript = `
 <script>
 (function() {
+  try {
+    Object.defineProperty(window, 'top', { get: function() { return window; } });
+    Object.defineProperty(window, 'parent', { get: function() { return window; } });
+  } catch(e) {}
+
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a');
     if (a && a.href && !a.href.startsWith('javascript:') && !a.href.startsWith('#')) {

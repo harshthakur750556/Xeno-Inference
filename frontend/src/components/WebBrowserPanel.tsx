@@ -452,15 +452,28 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="Search live web, arXiv preprints, or enter URL..."
-              className="w-full pl-7 pr-8 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
+              className="w-full pl-7 pr-16 py-1.5 rounded-xl bg-black border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
             />
-            <button
-              type="submit"
-              className="absolute right-2 text-zinc-400 hover:text-white transition cursor-pointer"
-              title="Search / Navigate"
-            >
-              <Search className="w-3.5 h-3.5" />
-            </button>
+            <div className="absolute right-1.5 flex items-center gap-1">
+              {activeTab.url && (
+                <a
+                  href={activeTab.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white transition cursor-pointer"
+                  title="Open in external window"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                type="submit"
+                className="p-1 text-zinc-400 hover:text-white transition cursor-pointer"
+                title="Search / Navigate"
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </form>
 
@@ -903,6 +916,20 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                   <BookOpen className="w-3.5 h-3.5 text-sky-400" />
                   <span>Reader</span>
                 </button>
+                {onInsertIntoPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const snippet = `### Web Reference: "${activeTab.title}"\nSource: ${activeTab.url}\n\n`;
+                      onInsertIntoPrompt(snippet);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs transition cursor-pointer"
+                    title="Insert website reference into chat prompt"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Cite</span>
+                  </button>
+                )}
                 <a
                   href={activeTab.url}
                   target="_blank"
