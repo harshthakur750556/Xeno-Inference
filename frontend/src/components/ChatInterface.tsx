@@ -113,7 +113,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       apiKey: '',
       baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
       rustBackendUrl: 'http://127.0.0.1:3001',
-      model: 'deepseek-r1',
+      model: '',
       temperature: 0.7,
       topP: 0.9,
       maxTokens: 2048,
@@ -341,16 +341,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               connected: false,
               label: 'No Provider Connected',
             });
-            // If openrouter without personal key, can discover public catalog
-            if (config.provider === 'openrouter') {
-              fetchProviderModels('openrouter').then((res) => {
-                if (isMounted && res.models.length > 0) {
-                  setAvailableModels(res.models);
-                  if (!config.model) {
-                    setConfig((prev) => ({ ...prev, model: res.models[0].id }));
-                  }
-                }
-              });
+            setAvailableModels([]);
+            if (config.model) {
+              setConfig((prev) => ({ ...prev, model: '' }));
             }
           }
           return;
@@ -1950,7 +1943,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         isOpen={isBenchmarkOpen}
         onClose={() => setIsBenchmarkOpen(false)}
         rustBackendUrl={config.rustBackendUrl}
-        activeModel={config.model}
+        activeModel={providerStatus.connected && config.model ? config.model : 'Local Hardware GEMM Engine (No Provider Connected)'}
       />
 
       {/* ================= AI NEWS & MODEL RELEASES MODAL ================= */}

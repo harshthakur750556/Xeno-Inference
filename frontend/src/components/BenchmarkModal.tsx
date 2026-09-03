@@ -100,9 +100,14 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-zinc-500">TARGET CORE / MODEL:</span>
               <span className="text-white font-bold px-2 py-0.5 rounded-lg bg-black border border-zinc-800">
-                {activeModel}
+                {activeModel || 'Local Hardware GEMM Engine'}
               </span>
             </div>
+            {activeModel && activeModel.includes('No Provider') && (
+              <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/30 text-amber-300 text-[11px] font-sans leading-relaxed">
+                ⚠️ No provider connected. Benchmark evaluates local CPU SIMD GEMM matrix multiplication & vector compute.
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-zinc-500">KERNEL TEST PASS:</span>
               <span className="text-zinc-300">Continuous Forward-Pass Micro-loop</span>

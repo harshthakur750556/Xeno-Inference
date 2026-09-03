@@ -62,9 +62,11 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     setIsLoading(true);
     try {
       const data = await fetchLiveArenaLeaderboard();
-      setModels(data);
-      if (data.length > 0 && radarSelectedSlugs.length === 0) {
-        setRadarSelectedSlugs(data.slice(0, 3).map((m) => m.slug));
+      if (Array.isArray(data) && data.length > 0) {
+        setModels(data);
+        if (radarSelectedSlugs.length === 0) {
+          setRadarSelectedSlugs(data.slice(0, 3).map((m) => m.slug || ''));
+        }
       }
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
@@ -84,15 +86,21 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
   const creators = ['ALL', 'Anthropic', 'OpenAI', 'DeepSeek', 'Google', 'Meta', 'Alibaba'];
 
-  const filtered = models
+  const filtered = (models || [])
     .filter((m) => {
+      if (!m) return false;
+      const creator = m.creator || '';
+      const name = m.name || '';
+      const slug = m.slug || '';
+      const provider = m.provider || '';
+
       // Creator filter
       if (selectedCreator !== 'ALL') {
         const cLower = selectedCreator.toLowerCase();
         if (
-          !m.creator.toLowerCase().includes(cLower) &&
-          !m.name.toLowerCase().includes(cLower) &&
-          !m.provider.toLowerCase().includes(cLower)
+          !creator.toLowerCase().includes(cLower) &&
+          !name.toLowerCase().includes(cLower) &&
+          !provider.toLowerCase().includes(cLower)
         ) {
           return false;
         }
@@ -103,47 +111,52 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       if (licenseFilter === 'proprietary' && m.license !== 'Proprietary') return false;
 
       // Search
-      const q = searchQuery.toLowerCase();
+      const q = (searchQuery || '').toLowerCase();
+      if (!q) return true;
       return (
-        m.name.toLowerCase().includes(q) ||
-        m.creator.toLowerCase().includes(q) ||
-        m.slug.toLowerCase().includes(q)
+        name.toLowerCase().includes(q) ||
+        creator.toLowerCase().includes(q) ||
+        slug.toLowerCase().includes(q)
       );
     })
     .sort((a, b) => {
+      if (!a || !b) return 0;
       if (sortBy === 'ttftMs' || sortBy === 'pricePerMillionIn') {
-        return (a[sortBy] ?? 0) - (b[sortBy] ?? 0);
+        return (Number(a[sortBy]) || 0) - (Number(b[sortBy]) || 0);
       }
-      return (b[sortBy] ?? 0) - (a[sortBy] ?? 0);
+      return (Number(b[sortBy]) || 0) - (Number(a[sortBy]) || 0);
     });
 
   // Calculate Pareto Frontier for Nodal Graph
   const graphData = useMemo(() => {
-    if (filtered.length === 0) return { nodes: [], paretoPath: '' };
+    if (!filtered || filtered.length === 0) return { nodes: [], paretoPath: '' };
 
-    const minX = Math.min(...filtered.map((m) => (m[graphXAxis] as number) || 0));
-    const maxX = Math.max(...filtered.map((m) => (m[graphXAxis] as number) || 1));
-    const minY = Math.min(...filtered.map((m) => (m[graphYAxis] as number) || 0));
-    const maxY = Math.max(...filtered.map((m) => (m[graphYAxis] as number) || 1));
+    const xVals = filtered.map((m) => Number(m?.[graphXAxis]) || 0);
+    const yVals = filtered.map((m) => Number(m?.[graphYAxis]) || 0);
+
+    const minX = Math.min(...xVals);
+    const maxX = Math.max(...xVals);
+    const minY = Math.min(...yVals);
+    const maxY = Math.max(...yVals);
 
     const width = 800;
     const height = 380;
     const padding = 50;
 
     const scaleX = (val: number) => {
-      if (maxX === minX) return width / 2;
-      return padding + ((val - minX) / (maxX - minX)) * (width - padding * 2);
+      if (maxX <= minX || isNaN(minX) || isNaN(maxX)) return width / 2;
+      return padding + Math.max(0, Math.min(1, (val - minX) / (maxX - minX))) * (width - padding * 2);
     };
 
     const scaleY = (val: number) => {
-      if (maxY === minY) return height / 2;
-      return height - padding - ((val - minY) / (maxY - minY)) * (height - padding * 2);
+      if (maxY <= minY || isNaN(minY) || isNaN(maxY)) return height / 2;
+      return height - padding - Math.max(0, Math.min(1, (val - minY) / (maxY - minY))) * (height - padding * 2);
     };
 
     const nodes = filtered.map((m) => {
-      const cx = scaleX((m[graphXAxis] as number) || 0);
-      const cy = scaleY((m[graphYAxis] as number) || 0);
-      return { model: m, cx, cy };
+      const cx = scaleX(Number(m?.[graphXAxis]) || 0);
+      const cy = scaleY(Number(m?.[graphYAxis]) || 0);
+      return { model: m, cx: isNaN(cx) ? width / 2 : cx, cy: isNaN(cy) ? height / 2 : cy };
     });
 
     const sortedNodes = [...nodes].sort((a, b) => a.cx - b.cx);
@@ -158,13 +171,15 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     });
 
     const paretoPath = paretoNodes.reduce((acc, n, idx) => {
-      return idx === 0 ? `M ${n.cx} ${n.cy}` : `${acc} L ${n.cx} ${n.cy}`;
+      if (isNaN(n.cx) || isNaN(n.cy)) return acc;
+      return idx === 0 ? `M ${n.cx.toFixed(1)} ${n.cy.toFixed(1)}` : `${acc} L ${n.cx.toFixed(1)} ${n.cy.toFixed(1)}`;
     }, '');
 
     return { nodes, paretoPath };
   }, [filtered, graphXAxis, graphYAxis]);
 
-  const getCreatorColor = (creator: string) => {
+  const getCreatorColor = (creator?: string) => {
+    if (!creator) return '#e4e4e7';
     const c = creator.toLowerCase();
     if (c.includes('google')) return '#3b82f6';
     if (c.includes('anthropic')) return '#f59e0b';
@@ -478,7 +493,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                           fontFamily="monospace"
                           fontWeight={isHovered ? 'bold' : 'normal'}
                         >
-                          {model.name.split(':')[1]?.trim() || model.name.slice(0, 14)}
+                          {model?.name ? (model.name.includes(':') ? model.name.split(':')[1].trim() : model.name.slice(0, 14)) : (model?.slug || 'Model')}
                         </text>
                       </g>
                     );
@@ -672,7 +687,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                             : 'bg-black border border-zinc-800 text-zinc-400 hover:text-white'
                         }`}
                       >
-                        {m.name.split(':')[1]?.trim() || m.name.slice(0, 16)}
+                        {m?.name ? (m.name.includes(':') ? m.name.split(':')[1].trim() : m.name.slice(0, 16)) : (m?.slug || 'Model')}
                       </button>
                     );
                   })}

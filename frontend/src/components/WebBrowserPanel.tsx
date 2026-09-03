@@ -28,7 +28,7 @@ interface BrowserTab {
   id: string;
   title: string;
   url: string;
-  view: 'home' | 'search' | 'reader';
+  view: 'home' | 'search' | 'reader' | 'webpage';
   searchResults: LiveSearchResult[];
   aiSynthesis: AiSearchSynthesis | null;
   readerData: WebPageReaderData | null;
@@ -132,19 +132,10 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         ...t,
         title: clean.replace(/^https?:\/\//, '').split('/')[0],
         url: fullUrl,
-        view: 'reader',
+        view: 'webpage',
         history: [...t.history.slice(0, t.historyIdx + 1), fullUrl],
         historyIdx: t.historyIdx + 1,
       }));
-
-      try {
-        const page = await fetchWebPageReader(fullUrl);
-        updateActiveTab({ readerData: page });
-      } catch (err) {
-        console.error('Reader error:', err);
-      } finally {
-        setIsLoading(false);
-      }
       return;
     }
 
@@ -253,6 +244,19 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     performSearchOrNavigate(urlInput);
+  };
+
+  const handleOpenLiveWebPage = (url: string, title?: string) => {
+    setIsLoading(true);
+    updateActiveTab((t) => ({
+      ...t,
+      view: 'webpage',
+      url,
+      title: title ? title.slice(0, 24) : url.replace(/^https?:\/\//, '').split('/')[0],
+      history: [...t.history.slice(0, t.historyIdx + 1), url],
+      historyIdx: t.historyIdx + 1,
+    }));
+    setUrlInput(url);
   };
 
   const handleOpenReader = async (result: LiveSearchResult) => {
@@ -425,24 +429,52 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
         {activeTab.view !== 'home' && (
           <div className="flex items-center justify-between text-[11px] font-mono pt-0.5">
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ view: 'search' })}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition cursor-pointer ${
-                  activeTab.view === 'search'
-                    ? 'bg-zinc-800 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Search className="w-3 h-3" />
-                <span>Search ({activeTab.searchResults.length})</span>
-              </button>
-
-              {activeTab.readerData && (
+              {activeTab.searchResults.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => updateActiveTab({ view: 'reader' })}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition cursor-pointer ${
+                  onClick={() => updateActiveTab({ view: 'search' })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    activeTab.view === 'search'
+                      ? 'bg-zinc-800 text-white font-semibold'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Search className="w-3 h-3" />
+                  <span>Search ({activeTab.searchResults.length})</span>
+                </button>
+              )}
+
+              {activeTab.url && (
+                <button
+                  type="button"
+                  onClick={() => updateActiveTab({ view: 'webpage' })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    activeTab.view === 'webpage'
+                      ? 'bg-zinc-800 text-white font-semibold'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Globe className="w-3 h-3 text-emerald-400" />
+                  <span>Live Web View</span>
+                </button>
+              )}
+
+              {activeTab.url && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    updateActiveTab({ view: 'reader' });
+                    if (!activeTab.readerData) {
+                      setIsLoading(true);
+                      try {
+                        const page = await fetchWebPageReader(activeTab.url);
+                        updateActiveTab({ readerData: page });
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
                     activeTab.view === 'reader'
                       ? 'bg-zinc-800 text-white font-semibold'
                       : 'text-zinc-400 hover:text-zinc-200'
@@ -452,12 +484,24 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                   <span>Reader View</span>
                 </button>
               )}
+
+              {activeTab.url && (
+                <a
+                  href={activeTab.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-zinc-500 hover:text-white transition"
+                  title="Open externally in new tab"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
 
             <button
               type="button"
               onClick={handleGoHome}
-              className="text-zinc-500 hover:text-zinc-300 flex items-center gap-1 text-[10px]"
+              className="text-zinc-500 hover:text-zinc-300 flex items-center gap-1 text-[10px] cursor-pointer"
             >
               <Home className="w-3 h-3" />
               <span>Start Page</span>
@@ -637,8 +681,11 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                 {/* Search Results List */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
-                    <span>WEB RESULTS ({activeTab.searchResults.length})</span>
-                    <span className="text-[10px] text-zinc-500">Live Web Index</span>
+                    <span className="font-semibold text-white">SEARCH RESULTS ({activeTab.searchResults.length})</span>
+                    <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>Engine: Live Multi-Source (DuckDuckGo + arXiv + Wikipedia)</span>
+                    </span>
                   </div>
 
                   {activeTab.searchResults.length === 0 ? (
@@ -669,7 +716,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                         </div>
 
                         <h3
-                          onClick={() => handleOpenReader(result)}
+                          onClick={() => handleOpenLiveWebPage(result.url, result.title)}
                           className="text-xs sm:text-sm font-bold text-white hover:text-sky-300 transition cursor-pointer leading-snug line-clamp-2"
                         >
                           {result.title}
@@ -680,14 +727,25 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                         </p>
 
                         <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-zinc-500 border-t border-zinc-800/50">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenReader(result)}
-                            className="text-sky-400 hover:text-sky-300 font-medium flex items-center gap-1 cursor-pointer"
-                          >
-                            <BookOpen className="w-3 h-3" />
-                            <span>Read Article</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenLiveWebPage(result.url, result.title)}
+                              className="text-white hover:text-sky-300 font-medium flex items-center gap-1 cursor-pointer bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-lg"
+                            >
+                              <Globe className="w-3 h-3 text-emerald-400" />
+                              <span>Browse Web Page</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReader(result)}
+                              className="text-zinc-400 hover:text-white font-medium flex items-center gap-1 cursor-pointer px-2 py-1"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              <span>Reader</span>
+                            </button>
+                          </div>
 
                           <div className="flex items-center gap-2">
                             <button
@@ -769,6 +827,26 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                 Unable to extract clean reader content for this page.
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================= VIEW 4: EMBEDDED LIVE WEBPAGE (FULL WEB BROWSING IN PANEL) ================= */}
+        {activeTab.view === 'webpage' && (
+          <div className="flex-1 w-full h-full min-h-[500px] relative bg-[#09090d] flex flex-col overflow-hidden">
+            {isLoading && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm text-xs font-mono text-zinc-300 gap-2">
+                <RotateCw className="w-5 h-5 animate-spin text-white" />
+                <span>Loading live webpage...</span>
+              </div>
+            )}
+            <iframe
+              key={activeTab.url}
+              src={`http://127.0.0.1:3001/api/proxy?url=${encodeURIComponent(activeTab.url)}`}
+              className="w-full h-full border-0 flex-1 bg-white min-h-[500px]"
+              title={activeTab.title}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              onLoad={() => setIsLoading(false)}
+            />
           </div>
         )}
 

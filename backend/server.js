@@ -519,6 +519,93 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // Live Web Page Proxy (Strips X-Frame-Options & CSP so ANY page embeds directly inside the browser panel)
+  if (pathname === '/api/proxy' && req.method === 'GET') {
+    const targetUrl = parsedUrl.searchParams.get('url') || '';
+    if (!targetUrl.trim()) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Missing url parameter');
+      return;
+    }
+
+    try {
+      const fullUrl = targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`;
+      const urlObj = new URL(fullUrl);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+
+      const proxyReq = client.request(
+        fullUrl,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+          },
+          timeout: 10000,
+        },
+        (proxyRes) => {
+          if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+            let redirectUrl = proxyRes.headers.location;
+            if (redirectUrl.startsWith('/')) {
+              redirectUrl = `${urlObj.origin}${redirectUrl}`;
+            }
+            res.writeHead(302, { Location: `/api/proxy?url=${encodeURIComponent(redirectUrl)}` });
+            res.end();
+            return;
+          }
+
+          const contentType = proxyRes.headers['content-type'] || 'text/html; charset=utf-8';
+          const isHtml = contentType.includes('text/html');
+
+          const headersToSend = {
+            'Content-Type': contentType,
+            'Access-Control-Allow-Origin': '*',
+          };
+
+          if (isHtml) {
+            let htmlChunks = [];
+            proxyRes.on('data', (chunk) => htmlChunks.push(chunk));
+            proxyRes.on('end', () => {
+              let html = Buffer.concat(htmlChunks).toString('utf-8');
+              const baseTag = `<base href="${urlObj.origin}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}">`;
+              if (html.includes('<head>')) {
+                html = html.replace('<head>', `<head>${baseTag}`);
+              } else if (html.includes('<HEAD>')) {
+                html = html.replace('<HEAD>', `<HEAD>${baseTag}`);
+              } else {
+                html = `${baseTag}${html}`;
+              }
+              res.writeHead(proxyRes.statusCode || 200, headersToSend);
+              res.end(html);
+            });
+          } else {
+            res.writeHead(proxyRes.statusCode || 200, headersToSend);
+            proxyRes.pipe(res);
+          }
+        }
+      );
+
+      proxyReq.on('error', (err) => {
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.end(`<html><body style="font-family:sans-serif;padding:24px;background:#0d0d12;color:#eee"><h3>Unable to connect to ${fullUrl}</h3><p style="color:#888">${err.message}</p></body></html>`);
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        res.writeHead(504, { 'Content-Type': 'text/plain' });
+        res.end('Gateway timeout connecting to target host');
+      });
+
+      proxyReq.end();
+      return;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Proxy error: ${err.message}`);
+      return;
+    }
+  }
+
   // Live AI Leaderboard (Artificial Analysis + LMSYS Chatbot Arena)
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
     try {

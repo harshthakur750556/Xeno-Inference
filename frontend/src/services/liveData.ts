@@ -282,10 +282,10 @@ export async function fetchWebPageReader(targetUrl: string): Promise<WebPageRead
 
   return {
     url: targetUrl,
-    title: `Web Source: ${domain}`,
-    content: `Live reader view for ${targetUrl}.\n\nClick "Open External Link" in the top bar to view full media and interactive elements directly on the host website.`,
+    title: `${domain}`,
+    content: `Article content for ${targetUrl}.\n\nToggle to "Live Web View" in the toolbar above to browse the fully rendered interactive page.`,
     domain,
-    wordCount: 30,
+    wordCount: 25,
   };
 }
 
