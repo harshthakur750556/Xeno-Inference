@@ -9,7 +9,6 @@ import {
   RotateCw,
   Search,
   Sparkles,
-  BookOpen,
   Share2,
   Check,
 } from 'lucide-react';

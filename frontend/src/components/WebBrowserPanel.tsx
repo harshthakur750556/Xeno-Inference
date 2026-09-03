@@ -864,7 +864,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                       title: activeTab.title || 'Reader View',
                       url: activeTab.url,
                       snippet: '',
-                      domain: '',
+                      source: 'Direct URL',
                     })
                   }
                   className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs transition cursor-pointer"
@@ -929,7 +929,7 @@ export const WebBrowserPanel: React.FC<WebBrowserPanelProps> = ({
                     title: activeTab.title || 'Reader View',
                     url: activeTab.url,
                     snippet: '',
-                    domain: '',
+                    source: 'Direct URL',
                   })
                 }
                 className="text-sky-400 hover:text-sky-300 font-semibold cursor-pointer ml-2 flex-shrink-0"
